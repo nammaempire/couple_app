@@ -1,0 +1,577 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function coupleDoc(coupleId) {
+      return /databases/$(database)/documents/couples/$(coupleId);
+    }
+
+    function inviteDoc(code) {
+      return /databases/$(database)/documents/invites/$(code);
+    }
+
+    function isMemberOf(coupleId) {
+      return signedIn() &&
+        request.auth.uid in get(coupleDoc(coupleId)).data.memberIds;
+    }
+
+    // Membership as it will be once the current write/batch/transaction
+    // commits. Used when a couple and a user link are written together.
+    function isMemberAfter(coupleId) {
+      return signedIn() &&
+        request.auth.uid in getAfter(coupleDoc(coupleId)).data.memberIds;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // ---- Users -----------------------------------------------------------
+
+    match /users/{userId} {
+      // Avatar fields, when present, keep the shape the app reads. The
+      // avatar's parts aren't listed, so newer app versions can add more.
+      function avatarOk() {
+        let d = request.resource.data;
+        return (!('avatar' in d) || d.avatar == null ||
+                (d.avatar is map && d.avatar.size() <= 24)) &&
+          (!('avatarAsPhoto' in d) || d.avatarAsPhoto == null ||
+           d.avatarAsPhoto is bool);
+      }
+
+      // You can read your own profile, and your partner's once you share a
+      // couple. Nobody else can see names, photos or emails.
+      allow read: if signedIn() && (
+        request.auth.uid == userId ||
+        (resource.data.get('coupleId', null) != null &&
+         isMemberOf(resource.data.coupleId))
+      );
+
+      // New profiles start unpaired.
+      allow create: if signedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.get('coupleId', null) == null &&
+        avatarOk();
+
+      // You may edit your own profile. `coupleId` can only point at a couple
+      // you are actually a member of (after this write), or be cleared.
+      allow update: if signedIn() &&
+        request.auth.uid == userId && avatarOk() && (
+          !('coupleId' in changedKeys()) ||
+          request.resource.data.coupleId == null ||
+          isMemberAfter(request.resource.data.coupleId)
+        );
+
+      allow delete: if false;
+    }
+
+    // ---- Invites ---------------------------------------------------------
+
+    // One document per invite code: invites/{code}. Codes can be looked up
+    // one at a time (get) but never listed, so they cannot be enumerated.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+
+      // Created alongside (or for) a couple you belong to, whose invite code
+      // is this document's id.
+      allow create: if signedIn() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.used == false &&
+        isMemberAfter(request.resource.data.coupleId) &&
+        getAfter(coupleDoc(request.resource.data.coupleId)).data.inviteCode == code;
+
+      // Accepting: the joiner marks an unused invite as used by themselves,
+      // in the same transaction that adds them to the couple.
+      allow update: if signedIn() &&
+        resource.data.used == false &&
+        request.resource.data.used == true &&
+        request.resource.data.usedBy == request.auth.uid &&
+        changedKeys().hasOnly(['used', 'usedBy', 'usedAt']) &&
+        isMemberAfter(resource.data.coupleId);
+
+      // The creator may withdraw their invite.
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ---- Couples ---------------------------------------------------------
+
+    match /couples/{coupleId} {
+      // Only the two members can read the couple, which holds the last
+      // message preview, dates and nicknames.
+      allow read: if signedIn() && request.auth.uid in resource.data.memberIds;
+
+      allow create: if signedIn() &&
+        request.resource.data.memberIds == [request.auth.uid] &&
+        request.resource.data.inviteCode is string;
+
+      allow update: if signedIn() && (
+        // Members edit shared details, but cannot add anyone. The only
+        // membership change a member can make is removing themselves.
+        (request.auth.uid in resource.data.memberIds && (
+          !('memberIds' in changedKeys()) ||
+          request.resource.data.memberIds ==
+            resource.data.memberIds.removeAll([request.auth.uid])
+        )) ||
+
+        // Joining: a non-member adds only themselves to a couple of one,
+        // and only by consuming this couple's invite in the same transaction.
+        (!(request.auth.uid in resource.data.memberIds) &&
+         resource.data.memberIds.size() == 1 &&
+         request.resource.data.memberIds ==
+           resource.data.memberIds.concat([request.auth.uid]) &&
+         changedKeys().hasOnly(['memberIds', 'activatedAt']) &&
+         get(inviteDoc(resource.data.inviteCode)).data.coupleId == coupleId &&
+         get(inviteDoc(resource.data.inviteCode)).data.used == false &&
+         getAfter(inviteDoc(resource.data.inviteCode)).data.usedBy ==
+           request.auth.uid)
+      );
+
+      // A couple still waiting for a partner can be cancelled by its creator.
+      allow delete: if signedIn() &&
+        resource.data.memberIds == [request.auth.uid];
+
+      match /messages/{messageId} {
+        allow read: if isMemberOf(coupleId);
+
+        // Couple stickers carry the quote as text (so older app versions
+        // still show it) and a small `sticker` map naming the scene.
+        function stickerOk() {
+          let d = request.resource.data;
+          return d.get('type', '') != 'sticker' || (
+            d.text is string && d.text.size() <= 400 &&
+            d.sticker is map &&
+            d.sticker.get('id', '') is string &&
+            d.sticker.get('id', '').size() > 0 &&
+            d.sticker.get('id', '').size() <= 64
+          );
+        }
+
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          stickerOk();
+
+        // Either partner may mark seen, react, or pin — but never change
+        // what a message says or who sent it. Only the sender may delete.
+        allow update: if isMemberOf(coupleId) &&
+          changedKeys().hasOnly(['seen', 'reactions', 'pinned', 'pinnedAt']);
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.senderId == request.auth.uid;
+      }
+
+      // Mood check-ins: one document per partner, and you own only your own.
+      match /moods/{userId} {
+        allow read: if isMemberOf(coupleId);
+        allow write: if isMemberOf(coupleId) && request.auth.uid == userId;
+      }
+
+      // Daily questions: one document per day holding both answers. Either
+      // partner may create or merge into it; nobody may delete the record.
+      match /dailyQuestions/{dateKey} {
+        allow read: if isMemberOf(coupleId);
+        allow create, update: if isMemberOf(coupleId);
+        allow delete: if false;
+      }
+
+      // Call signalling. A single `current` document both partners read and
+      // write: the caller sets it ringing, the callee accepts or declines,
+      // and either may end it.
+      match /call/{callId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.callerId == request.auth.uid;
+        allow update, delete: if isMemberOf(coupleId);
+      }
+
+      // Memories: shared by both. Either partner may edit one, but it stays
+      // credited to whoever added it, and only they can delete it.
+      match /memories/{memoryId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.createdBy == request.auth.uid;
+        allow update: if isMemberOf(coupleId) &&
+          request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.createdBy == request.auth.uid;
+      }
+
+      // Calendar events. A private event is visible only to its creator —
+      // the app queries shared events and its own events separately, since
+      // rules are not filters.
+      match /events/{eventId} {
+        function canSee() {
+          return resource.data.private == false ||
+            resource.data.createdBy == request.auth.uid;
+        }
+
+        allow read: if isMemberOf(coupleId) && canSee();
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.private is bool;
+        // Either partner may edit a shared event; only the creator may
+        // change who can see it. The creator never changes.
+        allow update: if isMemberOf(coupleId) && canSee() &&
+          request.resource.data.createdBy == resource.data.createdBy &&
+          (request.resource.data.private == resource.data.private ||
+           resource.data.createdBy == request.auth.uid);
+        allow delete: if isMemberOf(coupleId) && canSee();
+      }
+
+      // Love notes. The envelope (sender, recipient, delivery time) is
+      // visible to both, so a scheduled note can show "arrives in 3 days".
+      match /notes/{noteId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.recipientId != request.auth.uid &&
+          request.resource.data.recipientId in
+            get(coupleDoc(coupleId)).data.memberIds &&
+          request.resource.data.openedAt == null;
+        // The recipient marks it opened, once it has been delivered.
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.recipientId == request.auth.uid &&
+          changedKeys().hasOnly(['openedAt']) &&
+          request.time >= resource.data.deliverAt;
+        // The sender can unsend.
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.senderId == request.auth.uid;
+
+        // The words: readable by the sender any time, and by the recipient
+        // only from the delivery time. Written once, with the envelope.
+        match /sealed/{docId} {
+          function note() {
+            return getAfter(/databases/$(database)/documents/couples/$(coupleId)/notes/$(noteId)).data;
+          }
+
+          allow get: if isMemberOf(coupleId) && (
+            resource.data.senderId == request.auth.uid ||
+            (resource.data.recipientId == request.auth.uid &&
+             request.time >= resource.data.deliverAt)
+          );
+          allow list: if false;
+          allow create: if isMemberOf(coupleId) && docId == 'content' &&
+            note().senderId == request.auth.uid &&
+            request.resource.data.senderId == request.auth.uid &&
+            request.resource.data.recipientId == note().recipientId &&
+            request.resource.data.deliverAt == note().deliverAt;
+          allow update: if false;
+          allow delete: if isMemberOf(coupleId) &&
+            resource.data.senderId == request.auth.uid;
+        }
+      }
+
+      // ---- Plans: date planner, bucket list, wishlist, places, expenses ----
+      //
+      // Shared planning lists. Either partner may add and edit; an item
+      // stays credited to whoever added it. Field checks keep documents in
+      // the shape the app reads.
+
+      function str(field, maxLen) {
+        return request.resource.data[field] is string &&
+          request.resource.data[field].size() <= maxLen;
+      }
+
+      function title(field) {
+        return str(field, 120) && request.resource.data[field].size() > 0;
+      }
+
+      function optStr(field, maxLen) {
+        return !(field in request.resource.data) ||
+          request.resource.data[field] == null || str(field, maxLen);
+      }
+
+      function optInt(field, minValue, maxValue) {
+        return !(field in request.resource.data) ||
+          request.resource.data[field] == null ||
+          (request.resource.data[field] is int &&
+           request.resource.data[field] >= minValue &&
+           request.resource.data[field] <= maxValue);
+      }
+
+      function optTimestamp(field) {
+        return !(field in request.resource.data) ||
+          request.resource.data[field] == null ||
+          request.resource.data[field] is timestamp;
+      }
+
+      // '' or an http(s) link.
+      function optUrl(field) {
+        return !(field in request.resource.data) ||
+          request.resource.data[field] == null ||
+          request.resource.data[field] == '' ||
+          (str(field, 2000) &&
+           request.resource.data[field].matches('(?i)^https?://.+'));
+      }
+
+      function isMember(uid) {
+        return uid in get(coupleDoc(coupleId)).data.memberIds;
+      }
+
+      function createdByMe() {
+        return request.resource.data.createdBy == request.auth.uid;
+      }
+
+      function creatorUnchanged() {
+        return request.resource.data.createdBy == resource.data.createdBy;
+      }
+
+      match /datePlans/{planId} {
+        function valid() {
+          let d = request.resource.data;
+          return title('title') && optStr('notes', 2000) &&
+            optStr('location', 200) && optStr('reflection', 2000) &&
+            d.status in ['idea', 'planned', 'done'] &&
+            (d.status != 'planned' || d.scheduledAt is timestamp) &&
+            optTimestamp('scheduledAt') && optTimestamp('completedAt') &&
+            optInt('estimatedCostMinor', 0, 1000000000) &&
+            optInt('rating', 1, 5) &&
+            (!('vibe' in d) || d.vibe in
+              ['cozy', 'adventure', 'fancy', 'outdoors', 'food', 'culture',
+               'surprise']);
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) && createdByMe() && valid();
+        allow update: if isMemberOf(coupleId) && creatorUnchanged() && valid();
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      match /bucketList/{itemId} {
+        function valid() {
+          let d = request.resource.data;
+          return title('title') && optStr('notes', 2000) &&
+            d.category in ['travel', 'adventure', 'food', 'learn', 'home',
+                           'romance', 'other'] &&
+            d.done is bool &&
+            optTimestamp('doneAt') &&
+            (!('doneBy' in d) || d.doneBy == null || isMember(d.doneBy)) &&
+            optInt('targetYear', 2000, 2200);
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) && createdByMe() && valid();
+        allow update: if isMemberOf(coupleId) && creatorUnchanged() && valid();
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      // Each wish belongs to the person who wants it; only they edit it.
+      match /wishlist/{itemId} {
+        function valid() {
+          let d = request.resource.data;
+          return title('title') && optStr('notes', 1000) && optUrl('url') &&
+            optInt('priceMinor', 0, 1000000000) &&
+            d.priority in ['love', 'like', 'someday'] &&
+            (!('occasion' in d) ||
+             d.occasion in ['any', 'birthday', 'anniversary', 'festival']) &&
+            (!('received' in d) || d.received is bool);
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) && createdByMe() && valid();
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.createdBy == request.auth.uid &&
+          creatorUnchanged() && valid();
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.createdBy == request.auth.uid;
+      }
+
+      // "I'll get this": a secret claim on the partner's wish. Only the
+      // claimer can ever read it, so the surprise survives. The app lists
+      // claims with where('claimedBy', '==', uid), which these rules require.
+      match /wishlistClaims/{itemId} {
+        function wish() {
+          return get(/databases/$(database)/documents/couples/$(coupleId)/wishlist/$(itemId)).data;
+        }
+
+        allow read: if isMemberOf(coupleId) &&
+          resource.data.claimedBy == request.auth.uid;
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.claimedBy == request.auth.uid &&
+          request.resource.data.itemOwner == wish().createdBy &&
+          request.resource.data.itemOwner != request.auth.uid &&
+          request.resource.data.purchased is bool &&
+          request.resource.data.keys().hasOnly(
+            ['claimedBy', 'itemOwner', 'claimedAt', 'purchased']);
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.claimedBy == request.auth.uid &&
+          changedKeys().hasOnly(['purchased']) &&
+          request.resource.data.purchased is bool;
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.claimedBy == request.auth.uid;
+      }
+
+      match /places/{placeId} {
+        function valid() {
+          let d = request.resource.data;
+          return title('name') && optStr('area', 200) && optUrl('mapsUrl') &&
+            optStr('notes', 2000) &&
+            d.category in ['restaurant', 'cafe', 'bar', 'outdoors', 'travel',
+                           'shopping', 'activity', 'other'] &&
+            d.status in ['wantToGo', 'been'] &&
+            optInt('rating', 1, 5) && optTimestamp('visitedAt') &&
+            (!('favourite' in d) || d.favourite is bool);
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) && createdByMe() && valid();
+        allow update: if isMemberOf(coupleId) && creatorUnchanged() && valid();
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      // Shared expenses, in integer minor units (paise). Either partner may
+      // correct an entry; only whoever added it may delete it.
+      match /expenses/{expenseId} {
+        function valid() {
+          let d = request.resource.data;
+          return d.kind in ['expense', 'settlement'] &&
+            title('title') && optStr('note', 500) &&
+            d.amountMinor is int && d.amountMinor > 0 &&
+            d.amountMinor <= 1000000000 &&
+            isMember(d.paidBy) &&
+            d.split in ['equal', 'full', 'custom'] &&
+            (d.kind != 'settlement' || d.split == 'full') &&
+            (d.split != 'custom' || d.shares is map) &&
+            d.category in ['food', 'groceries', 'travel', 'home', 'bills',
+                           'shopping', 'fun', 'gifts', 'other'] &&
+            d.spentOn is timestamp;
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) && createdByMe() && valid();
+        allow update: if isMemberOf(coupleId) && creatorUnchanged() && valid();
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.createdBy == request.auth.uid;
+      }
+
+      // ---- Chat look: colour and background both partners see ----------
+      // Only `settings/chatLook` exists today. Either partner may change it.
+      match /settings/{docId} {
+        function validLook() {
+          let d = request.resource.data;
+          return docId == 'chatLook' &&
+            (d.color == null || d.color is int) &&
+            d.background is map &&
+            d.background.kind in ['none', 'pattern', 'photo'] &&
+            (d.background.get('dim', 0) is number) &&
+            d.background.get('dim', 0) >= 0 &&
+            d.background.get('dim', 0) <= 0.7 &&
+            (d.background.get('blur', 0) is number) &&
+            d.background.get('blur', 0) >= 0 &&
+            d.background.get('blur', 0) <= 12 &&
+            (d.background.get('photoUrl', null) == null ||
+             (d.background.photoUrl is string &&
+              d.background.photoUrl.matches('^https://.+') &&
+              d.background.photoUrl.size() <= 2000)) &&
+            d.updatedBy == request.auth.uid;
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create, update: if isMemberOf(coupleId) && validLook();
+        allow delete: if false;
+      }
+
+      // ---- Play: games between the two partners -------------------------
+      //
+      // One document per game. `turn` names whoever must act next, and only
+      // they may change an active game; `moveCount` must go up by exactly
+      // one per write, so two phones can't both apply a move. Finished and
+      // cancelled games are frozen.
+      match /games/{gameId} {
+        function d() { return request.resource.data; }
+        function r() { return resource.data; }
+        function me() { return request.auth.uid; }
+
+        function fixedKeysUnchanged() {
+          return d().type == r().type && d().createdBy == r().createdBy &&
+            d().invitee == r().invitee && d().players == r().players &&
+            d().createdAt == r().createdAt;
+        }
+
+        // In the quiz, the guesses can't change once locked in, and the
+        // person being guessed about never changes.
+        function quizIntact() {
+          return r().type != 'knowMe' || (
+            (!('subject' in r().state) ||
+              d().state.get('subject', null) == r().state.subject) &&
+            (r().state.get('guessesLocked', false) != true ||
+              (d().state.get('guessesLocked', false) == true &&
+               d().state.get('guesses', null) == r().state.guesses))
+          );
+        }
+
+        function cancelling() {
+          return d().status == 'cancelled' && d().turn == null &&
+            changedKeys().hasOnly(['status', 'turn', 'moveCount', 'updatedAt']);
+        }
+
+        function accepting() {
+          return r().status == 'invited' && d().status == 'active' &&
+            me() == r().invitee && d().turn in r().players &&
+            d().winner == null;
+        }
+
+        function takingTurn() {
+          return r().status == 'active' && me() == r().turn && (
+            (d().status == 'active' && d().turn in r().players &&
+             d().winner == null) ||
+            (d().status == 'finished' && d().turn == null &&
+             (d().winner == null || d().winner == 'draw' ||
+              d().winner in r().players))
+          );
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          d().type in ['knowMe', 'truthOrDare', 'ticTacToe', 'connectFour'] &&
+          d().createdBy == me() &&
+          d().invitee != me() && isMember(d().invitee) &&
+          d().players == [me(), d().invitee] &&
+          d().status == 'invited' && d().turn == null &&
+          d().winner == null && d().moveCount == 0 && d().state is map;
+        allow update: if isMemberOf(coupleId) &&
+          r().status in ['invited', 'active'] &&
+          fixedKeysUnchanged() &&
+          d().moveCount == r().moveCount + 1 &&
+          d().state is map && quizIntact() &&
+          (cancelling() || accepting() || takingTurn());
+        allow delete: if false;
+
+        // Quiz answers about yourself. Written once by the person being
+        // guessed about, in the same batch that hands the turn over. The
+        // guesser can read them only after locking in their guesses.
+        match /secret/{docId} {
+          function game() {
+            return get(/databases/$(database)/documents/couples/$(coupleId)/games/$(gameId)).data;
+          }
+
+          allow get: if isMemberOf(coupleId) && (
+            resource.data.subject == request.auth.uid ||
+            game().state.get('guessesLocked', false) == true ||
+            game().status == 'finished'
+          );
+          allow list: if false;
+          allow create: if isMemberOf(coupleId) && docId == 'answers' &&
+            game().type == 'knowMe' && game().status == 'active' &&
+            game().turn == request.auth.uid &&
+            game().state.get('subject', null) == request.auth.uid &&
+            request.resource.data.subject == request.auth.uid &&
+            request.resource.data.answers is list;
+          allow update, delete: if false;
+        }
+      }
+
+      // Thinking-of-you buzzes. Append-only.
+      match /nudges/{nudgeId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

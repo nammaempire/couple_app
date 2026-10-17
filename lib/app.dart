@@ -1,0 +1,20 @@
+import 'package:flutter/material.dart';
+
+import 'package:couple_app/core/theme/app_theme.dart';
+import 'package:couple_app/features/auth/screens/auth_gate.dart';
+
+class CoupleApp extends StatelessWidget {
+  const CoupleApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Us',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: ThemeMode.system,
+      home: const AuthGate(),
+    );
+  }
+}

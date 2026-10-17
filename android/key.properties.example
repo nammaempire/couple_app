@@ -1,0 +1,16 @@
+# Copy this file to android/key.properties and fill in your own values.
+# key.properties is gitignored — never commit it, and never commit the .jks.
+#
+# Generate the keystore first:
+#
+#   keytool -genkey -v -keystore ~/together-release-key.jks \
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias together
+#
+# Keep the .jks file and these passwords backed up somewhere safe. Lose them
+# and you can never ship an update over an already-installed copy — the phone
+# will refuse the install and you would have to uninstall first.
+
+storePassword=yourStorePassword
+keyPassword=yourKeyPassword
+keyAlias=together
+storeFile=/Users/jerbo/together-release-key.jks

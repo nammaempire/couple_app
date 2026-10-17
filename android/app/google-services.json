@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "351005784085",
+    "project_id": "together-48033",
+    "storage_bucket": "together-48033.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351005784085:android:aba977953b8b38f7cbf61c",
+        "android_client_info": {
+          "package_name": "com.example.couple_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-KGL0aCSHpLzQWXCAKb62eWNrRJEQGw4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351005784085:android:018b467085678241cbf61c",
+        "android_client_info": {
+          "package_name": "com.nammaempire.together"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-KGL0aCSHpLzQWXCAKb62eWNrRJEQGw4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

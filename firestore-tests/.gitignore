@@ -1,0 +1,5 @@
+node_modules/
+*.log
+# copied in by `npm test`
+/firestore.rules
+/storage.rules
