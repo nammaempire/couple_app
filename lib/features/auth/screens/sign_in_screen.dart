@@ -3,20 +3,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/data/auth_service.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
-import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/widgets/google_mark.dart';
 import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
-  const SignInScreen({super.key, this.initialSignUp = false, this.onBack});
+  const SignInScreen({
+    super.key,
+    this.initialSignUp = false,
+    this.onBack,
+    this.onPhone,
+  });
 
   /// Open on the "create account" form rather than "sign in".
   final bool initialSignUp;
 
   /// Returns to the welcome screen. Hidden when null.
   final VoidCallback? onBack;
+
+  /// Opens "Continue with mobile number". Hidden when null.
+  final VoidCallback? onPhone;
 
   @override
   ConsumerState<SignInScreen> createState() => _SignInScreenState();
@@ -211,6 +219,22 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               icon: const GoogleMark(),
                               label: const Text('Continue with Google'),
                             ),
+                            if (widget.onPhone != null) ...[
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: _busy ? null : widget.onPhone,
+                                style: pillOutlineStyle(context, preset: preset)
+                                    .copyWith(
+                                      foregroundColor: WidgetStatePropertyAll(
+                                        scheme.onSurface,
+                                      ),
+                                    ),
+                                icon: const Icon(Icons.phone_iphone_rounded),
+                                label: const Text(
+                                  'Continue with mobile number',
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 18),
                             Row(
                               children: [

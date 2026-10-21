@@ -18,6 +18,7 @@ class MessageActionsSheet extends StatelessWidget {
     required this.onCopy,
     required this.onTogglePin,
     required this.onDelete,
+    this.allowCopy = true,
   });
 
   final Message message;
@@ -33,6 +34,10 @@ class MessageActionsSheet extends StatelessWidget {
 
   /// Only offered for my own messages.
   final VoidCallback onDelete;
+
+  /// Whether text may be copied out of the app (not while the pairing is
+  /// ending).
+  final bool allowCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -134,9 +139,10 @@ class MessageActionsSheet extends StatelessWidget {
                 onTap: () => run(onReply),
               ),
             ],
-            if (message.type == MessageType.text ||
-                (message.type == MessageType.sticker &&
-                    message.text.isNotEmpty))
+            if (allowCopy &&
+                (message.type == MessageType.text ||
+                    (message.type == MessageType.sticker &&
+                        message.text.isNotEmpty)))
               ChatSheetOption(
                 icon: Icons.copy,
                 title: message.type == MessageType.sticker

@@ -484,6 +484,51 @@ A call keeps running under the lock. Android: `MainActivity` is a
 `FlutterFragmentActivity`, themes are AppCompat, `androidx.appcompat` is a
 dependency and `USE_BIOMETRIC` is in the manifest.
 
+**Private (the vault)** (Us → 🔒 Private). An end-to-end encrypted space
+for photos and a private chat, only for the two of you, 18+ only.
+- Each phone has its own X25519 key in secure storage (never backed up:
+  `allowBackup=false` and `data_extraction_rules.xml`). A random vault key
+  (and a separate decoy key) is wrapped for each approved phone in
+  `couples/{id}/vault/meta.keys`. A new phone is approved from an unlocked
+  partner phone after comparing a 16-digit safety code.
+- One shared 6-digit code (Argon2id verifier stored encrypted under the vault
+  key), then fingerprint/face. A second decoy code opens a separate decoy
+  vault; items are stored on shelves 'a'/'b' so the server can't tell which
+  is real. Wrong codes: cooldowns from the 5th try and an alert to the
+  partner (`vaultEvents`).
+- Items (`vaultItems`): AES-GCM per item; photos re-encoded (EXIF dropped),
+  encrypted with a thumbnail and stored as opaque bytes in
+  `couples/{id}/vault/`. Keep, view once (deleted after the first view) or
+  24 hours (deleted by whichever phone opens the vault next).
+- Screenshots blocked, nothing saved to the gallery, auto-lock on leaving,
+  backgrounding or 2 minutes idle. Either partner can delete anything or
+  delete the vault for both. If every approved phone is lost, the vault can't
+  be recovered, by design.
+
+**Mobile number and pairing by number.** "Continue with mobile number"
+(Firebase phone sign-in, SMS OTP; needs the Blaze plan, the Phone provider,
+SHA-1/SHA-256 and Play Integrity). A verified number is recorded in
+`phoneIndex/{+E164}` (fetchable one at a time, never listable), so a partner
+can be found by number: `pairRequests/{id}` carries the sender's couple and
+invite code, and accepting runs the normal invite join. One couple per person.
+
+**Ending a pairing** (Us → Our pairing). `couples/{id}.separation`:
+- Either partner asks (app lock / fingerprint first). It ends 14 days later,
+  or 7 days after the other agrees, whichever is sooner. The partner can
+  agree or decline, but can't stop it; only the one who asked can cancel.
+- While it's pending: banners on Home, Us and chat with a countdown; mute
+  (`users/{uid}.mutePartner`: no alerts, partner calls end as missed); the
+  vault is closed (the rules refuse it); copying and sharing out are hidden;
+  screenshots are blocked in chat.
+- "I need to leave now": a safety exit behind app lock + typing LEAVE that
+  ends it immediately.
+- Deletion runs on the server (`functions/`, region asia-south1):
+  `processSeparations` every 15 minutes, `finalizeSeparation` (called by the
+  app when the date has passed) and `leaveNow`. Everything under the couple,
+  its Storage files, invites and pair requests is deleted; both accounts stay
+  and get `pairingEndedAt`. Deploy with `firebase deploy --only functions`
+  once the project is on Blaze (see functions/README.md).
+
 **Calls.** Voice and video over Agora. Unanswered calls stop ringing after
 45 seconds.
 
@@ -527,6 +572,36 @@ dependency and `USE_BIOMETRIC` is in the manifest.
   The header says in plain words who owes whom; "Settle up" records the
   payment. Includes monthly totals and a this-month-by-category breakdown.
   Currency is per couple (₹ by default).
+
+**Premium, gifts and Memory books** (Us → Premium & books). Sold through
+Google Play Billing (`in_app_purchase` behind `BillingGateway`); the app never
+grants anything itself. Each purchase goes to the `verifyPurchase` callable,
+which checks it with the Google Play Developer API and writes the result:
+`couples/{id}.premium` (one plan for both partners), `bookCredits`, or a gift.
+Renewals, cancellations and refunds arrive as Play real-time notifications on
+the `play-billing` Pub/Sub topic. Products: `premium_monthly`,
+`premium_yearly`, `book_single`, `gift_premium_1m/3m/12m`, `gift_book`.
+Until the server is deployed, purchases show "waiting for the server".
+- *Gifts* (`couples/{id}/gifts`): 1, 3 or 12 months of Premium, or a Memory
+  book, with a note. The partner unwraps it once (`openedAt`). Month gifts
+  are hidden while a subscription is active, so paid time is never lost.
+- *Memory book*: pick a date range; the phone builds a PDF (cover with your
+  avatars, contents, a page per month of memories, photos and love notes,
+  "Our numbers", a closing page), uploads it to `couples/{id}/books/` and
+  spends one credit in the same batch (the rules check the credit drops by
+  exactly 1). A free preview is watermarked.
+
+**Sign-in protection** (Us → Sign-in protection). Phone numbers get reused,
+so a verified OTP alone isn't enough on a new phone. Each phone keeps a
+random device id in secure storage; known phones are listed in
+`users/{uid}/devices`. A new phone must be confirmed by one of:
+- the partner (a `couples/{id}/deviceChecks` doc; both phones show the same
+  two-digit code and the partner approves or turns it down),
+- the account password or Google (re-authentication), or
+- a 7-day wait, during which the owner sees "It wasn't me" on their other
+  phones (`users/{uid}/securityEvents`).
+The owner can pause new-phone sign-ins for 30 days (`blockNewPhoneUntil`).
+Until confirmed, the new phone can't open the couple's space or the vault.
 
 **Play** (tab)
 - A hub with invites and games waiting on you (the tab shows a badge),

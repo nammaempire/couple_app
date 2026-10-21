@@ -5,18 +5,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
-import 'package:couple_app/features/calls/models/call_session.dart';
-import 'package:couple_app/features/calls/providers/call_providers.dart';
-import 'package:couple_app/features/calls/screens/incoming_call_screen.dart';
+import 'package:couple_app/features/calls/widgets/incoming_call_listener.dart';
 import 'package:couple_app/features/chat/screens/chat_screen.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/couple/providers/separation_providers.dart';
 import 'package:couple_app/features/home/models/love_tap.dart';
 import 'package:couple_app/features/home/models/nudge.dart';
 import 'package:couple_app/features/home/providers/home_providers.dart';
 import 'package:couple_app/features/home/screens/home_screen.dart';
 import 'package:couple_app/features/memories/screens/memories_screen.dart';
 import 'package:couple_app/features/music/widgets/listening_banner.dart';
+import 'package:couple_app/features/security/widgets/device_check_listener.dart';
+import 'package:couple_app/features/security/widgets/security_banners.dart';
 import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
+import 'package:couple_app/features/premium/providers/premium_providers.dart';
 import 'package:couple_app/features/play/game_catalog.dart';
 import 'package:couple_app/features/play/models/game.dart';
 import 'package:couple_app/features/play/providers/play_providers.dart';
@@ -33,6 +35,11 @@ import 'package:couple_app/features/us/screens/us_screen.dart';
 /// It keeps the couple, partner, calendar and love-note providers alive, and
 /// owns the incoming-nudge and call listeners and the on-device reminder
 /// sync, so all of them work no matter which tab is on screen.
+///
+/// While the partner is muted ([mutePartnerProvider]) their nudges, game
+/// invites and listening banner stay quiet, the Play badge is hidden and
+/// their calls are not rung. It also finishes an ending pairing on the
+/// server once its date has passed ([SeparationFinalizer]).
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
@@ -40,7 +47,8 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell>
+    with WidgetsBindingObserver {
   static const _homeTab = 0;
   static const _chatTab = 1;
   static const _memoriesTab = 2;
@@ -61,12 +69,6 @@ class _MainShellState extends ConsumerState<MainShell> {
   StreamSubscription<Nudge?>? _nudgeSub;
   String? _lastNudgeId;
 
-  StreamSubscription<CallSession?>? _callSub;
-
-  /// True while an incoming-call screen is on top, so a rebuild of the
-  /// stream does not push a second copy of it.
-  bool _showingIncomingCall = false;
-
   @override
   void initState() {
     super.initState();
@@ -74,8 +76,64 @@ class _MainShellState extends ConsumerState<MainShell> {
     _coupleId = ref.read(currentCoupleIdProvider);
     _listenForNudges();
     _listenForGameInvites();
-    _listenForCalls();
     _listenForPlans();
+    _listenForSeparation();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(separationFinalizerProvider.notifier).check());
+      // Paid purchases the server couldn't confirm yet.
+      unawaited(
+        ref
+            .read(purchaseControllerProvider.notifier)
+            .retryPending()
+            .catchError((Object _) {}),
+      );
+    }
+  }
+
+  /// Finishes an ending pairing once its date has passed (on open, on every
+  /// change, and on coming back to the app), and clears pushed screens once
+  /// this user is no longer paired, so nothing is left over the next one.
+  void _listenForSeparation() {
+    void check() {
+      if (!mounted) return;
+      unawaited(ref.read(separationFinalizerProvider.notifier).check());
+    }
+
+    // Keeps the finalizer (and its retry timer) alive with the shell.
+    ref.listenManual(separationFinalizerProvider, (_, _) {});
+    ref.listenManual(
+      coupleProvider.select(
+        (c) => (c.value?.separation?.effectiveAt, c.value?.ending != null),
+      ),
+      (_, _) => check(),
+    );
+    // Not during initState: the first check may update the finalizer.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      check();
+      // Listen for purchases, send any still waiting for the server, and
+      // re-verify an active subscription in case a renewal was missed.
+      if (!mounted) return;
+      unawaited(
+        ref
+            .read(purchaseControllerProvider.notifier)
+            .start(_coupleId, refresh: true)
+            .catchError((Object _) {}),
+      );
+    });
+
+    ref.listenManual(currentUserProvider.select((u) => u.coupleId), (
+      _,
+      coupleId,
+    ) {
+      if (coupleId == null && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
   }
 
   /// Re-plans reminders whenever anything they depend on changes: the
@@ -136,31 +194,10 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nudgeSub?.cancel();
-    _callSub?.cancel();
     _reminderDebounce?.cancel();
     super.dispose();
-  }
-
-  void _listenForCalls() {
-    final calls = ref.read(callServiceProvider);
-    _callSub = calls.watchCall(_coupleId).listen((session) async {
-      if (!mounted || session == null) return;
-
-      // Only the callee gets the incoming screen, and only while it is still
-      // ringing and has not sat unanswered past the timeout.
-      if (!session.isIncomingFor(_myUid)) return;
-      if (_showingIncomingCall || session.hasRungOut) return;
-
-      _showingIncomingCall = true;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (_) => IncomingCallScreen(session: session),
-        ),
-      );
-      _showingIncomingCall = false;
-    });
   }
 
   void _listenForNudges() {
@@ -177,6 +214,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (isFirstEmission || !isNew) return;
       if (nudge.senderId == _myUid) return;
       if (!nudge.isFresh) return;
+      if (ref.read(mutePartnerProvider)) return;
 
       _playNudge(nudge.kind);
     });
@@ -199,6 +237,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           : invites.where((g) => !known!.contains(g.id)).toList();
       known = ids;
       if (fresh.isEmpty || !mounted) return;
+      if (ref.read(mutePartnerProvider)) return;
       // The hub already shows invites; anywhere else (including a game
       // screen pushed on top of it) gets a snack bar.
       final hubOnScreen =
@@ -243,7 +282,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   List<Widget> get _tabs => [
     HomeScreen(
-      onOpenChat: () => setState(() => _tabIndex = _chatTab),
+      onOpenChat: _openChat,
       onOpenMemories: () => setState(() => _tabIndex = _memoriesTab),
       onOpenCalendar: () {
         setState(() => _tabIndex = _togetherTab);
@@ -254,77 +293,88 @@ class _MainShellState extends ConsumerState<MainShell> {
     const MemoriesScreen(),
     TogetherScreen(key: _togetherKey),
     const PlayHubScreen(),
-    const UsScreen(),
+    UsScreen(onOpenChat: _openChat),
   ];
+
+  void _openChat() => setState(() => _tabIndex = _chatTab);
 
   @override
   Widget build(BuildContext context) {
     final couple = ref.watch(coupleProvider).value;
-    final waitingOnMe = ref.watch(gamesWaitingOnMeProvider);
+    final muted = ref.watch(mutePartnerProvider);
+    // Muted: no badges for the partner's activity.
+    final waitingOnMe = muted ? 0 : ref.watch(gamesWaitingOnMeProvider);
     if (couple == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _tabIndex,
-        // IndexedStack keeps hidden tabs' tickers running; pause them so
-        // looping decorations (gradients, hearts) only animate on screen.
-        children: [
-          for (final (i, tab) in _tabs.indexed)
-            TickerMode(enabled: i == _tabIndex, child: tab),
-        ],
-      ),
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Listening together: on every tab while a session is live.
-          const ListeningBanner(),
-          NavigationBar(
-            selectedIndex: _tabIndex,
-            onDestinationSelected: (index) => setState(() => _tabIndex = index),
-            destinations: [
-              const NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.chat_bubble_outline),
-                selectedIcon: Icon(Icons.chat_bubble),
-                label: 'Chat',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.photo_album_outlined),
-                selectedIcon: Icon(Icons.photo_album),
-                label: 'Memories',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.calendar_month_outlined),
-                selectedIcon: Icon(Icons.calendar_month),
-                label: 'Together',
-              ),
-              NavigationDestination(
-                icon: Badge(
-                  isLabelVisible: waitingOnMe > 0,
-                  label: Text('$waitingOnMe'),
-                  child: const Icon(Icons.sports_esports_outlined),
-                ),
-                selectedIcon: Badge(
-                  isLabelVisible: waitingOnMe > 0,
-                  label: Text('$waitingOnMe'),
-                  child: const Icon(Icons.sports_esports),
-                ),
-                label: 'Play',
-              ),
-              const NavigationDestination(
-                icon: Icon(Icons.favorite_outline),
-                selectedIcon: Icon(Icons.favorite),
-                label: 'Us',
+    return DeviceCheckListener(
+      child: IncomingCallListener(
+        child: Scaffold(
+          body: IndexedStack(
+            index: _tabIndex,
+            // IndexedStack keeps hidden tabs' tickers running; pause them so
+            // looping decorations (gradients, hearts) only animate on screen.
+            children: [
+              for (final (i, tab) in _tabs.indexed)
+                TickerMode(enabled: i == _tabIndex, child: tab),
+            ],
+          ),
+          bottomNavigationBar: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Listening together: on every tab while a session is live
+              // (unless the partner is muted).
+              const SecurityBanners(),
+              if (!muted) const ListeningBanner(),
+              NavigationBar(
+                selectedIndex: _tabIndex,
+                onDestinationSelected: (index) =>
+                    setState(() => _tabIndex = index),
+                destinations: [
+                  const NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.chat_bubble_outline),
+                    selectedIcon: Icon(Icons.chat_bubble),
+                    label: 'Chat',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.photo_album_outlined),
+                    selectedIcon: Icon(Icons.photo_album),
+                    label: 'Memories',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    selectedIcon: Icon(Icons.calendar_month),
+                    label: 'Together',
+                  ),
+                  NavigationDestination(
+                    icon: Badge(
+                      isLabelVisible: waitingOnMe > 0,
+                      label: Text('$waitingOnMe'),
+                      child: const Icon(Icons.sports_esports_outlined),
+                    ),
+                    selectedIcon: Badge(
+                      isLabelVisible: waitingOnMe > 0,
+                      label: Text('$waitingOnMe'),
+                      child: const Icon(Icons.sports_esports),
+                    ),
+                    label: 'Play',
+                  ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.favorite_outline),
+                    selectedIcon: Icon(Icons.favorite),
+                    label: 'Us',
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

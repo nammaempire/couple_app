@@ -25,6 +25,7 @@ class ScreenshotPrivacySheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final blocked = ref.watch(blockScreenshotsProvider);
+    final forced = ref.watch(screenshotsForcedProvider);
 
     return SafeArea(
       // Scrolls rather than overflowing with large text.
@@ -66,12 +67,15 @@ class ScreenshotPrivacySheet extends ConsumerWidget {
                     ),
                   ),
                   subtitle: Text(
-                    'On both phones, screenshots and screen recordings of the '
-                    'chat come out black, and it is hidden in recent apps. '
-                    '$partnerName will see that you changed this.',
+                    forced
+                        ? 'On while your pairing ends, on both phones.'
+                        : 'On both phones, screenshots and screen recordings '
+                              'of the chat come out black, and it is hidden in '
+                              'recent apps. $partnerName will see that you '
+                              'changed this.',
                   ),
                   value: blocked,
-                  onChanged: onChanged,
+                  onChanged: forced ? null : onChanged,
                 ),
               ),
             ),

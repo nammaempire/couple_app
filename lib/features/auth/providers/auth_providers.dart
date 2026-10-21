@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/features/auth/data/auth_service.dart';
+import 'package:couple_app/features/auth/data/phone_auth_gateway.dart';
+import 'package:couple_app/features/auth/data/phone_number_service.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
@@ -63,3 +65,13 @@ final currentCoupleIdProvider = Provider.autoDispose<String>((ref) {
   }
   return coupleId;
 });
+
+/// Sends SMS codes and signs in (or adds a number) with them.
+final phoneAuthGatewayProvider = Provider<PhoneAuthGateway>(
+  (ref) => FirebasePhoneAuthGateway(),
+);
+
+/// Verified numbers on profiles and in `phoneIndex`.
+final phoneNumberServiceProvider = Provider<PhoneNumberService>(
+  (ref) => PhoneNumberService(),
+);

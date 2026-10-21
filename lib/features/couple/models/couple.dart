@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:couple_app/features/couple/models/separation.dart';
+import 'package:couple_app/features/premium/models/premium_status.dart';
+
 /// A pair of users sharing one conversation.
 class Couple {
   final String id;
@@ -45,6 +48,29 @@ class Couple {
   /// Shared switch: while on, both phones block screenshots of the chat.
   final bool blockScreenshots;
 
+  /// Set while the pairing is ending (see [Separation]); null otherwise.
+  final Separation? separation;
+
+  /// Set by the server while it deletes everything at the end of a
+  /// pairing (`ending: {how, startedAt, …}`). Clients never write it.
+  final PairingEnding? ending;
+
+  /// Premium for both of you (server-written); null if never bought.
+  final PremiumStatus? premium;
+
+  /// Memory books paid for but not made yet (server-incremented).
+  final int bookCredits;
+
+  /// Whether Premium is active at [now] (defaults to the phone's clock).
+  bool isPremium([DateTime? now]) =>
+      premium?.isActive(now ?? DateTime.now()) ?? false;
+
+  /// When Premium ends, if it was ever bought.
+  DateTime? get premiumUntil => premium?.until;
+
+  /// The pairing is ending or being deleted.
+  bool get isSeparating => separation != null || ending != null;
+
   static const defaultCurrency = 'INR';
 
   const Couple({
@@ -62,6 +88,10 @@ class Couple {
     this.chatClearedAt,
     this.chatClearedBy,
     this.blockScreenshots = false,
+    this.separation,
+    this.ending,
+    this.premium,
+    this.bookCredits = 0,
   });
 
   /// What [uid] calls their partner, if they have set anything.
@@ -183,6 +213,10 @@ class Couple {
       chatClearedAt: (data['chatClearedAt'] as Timestamp?)?.toDate(),
       chatClearedBy: data['chatClearedBy'] as String?,
       blockScreenshots: (data['blockScreenshots'] as bool?) ?? false,
+      separation: Separation.fromMap(data['separation']),
+      ending: PairingEnding.fromMap(data['ending']),
+      premium: PremiumStatus.fromMap(data['premium']),
+      bookCredits: (data['bookCredits'] as num?)?.toInt() ?? 0,
     );
   }
 

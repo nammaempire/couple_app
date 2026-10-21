@@ -8,19 +8,28 @@ import 'package:couple_app/features/onboarding/widgets/pairing_choice_card.dart'
 import 'package:couple_app/features/onboarding/widgets/pairing_notice.dart';
 import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
-/// First pairing step: choose between creating a space and joining one.
+/// First pairing step: choose between creating a space, joining one, and
+/// pairing by the partner's mobile number.
 class PairingChooseStep extends StatelessWidget {
   const PairingChooseStep({
     super.key,
     required this.notice,
     required this.onCreate,
     required this.onJoin,
+    this.onByNumber,
+    this.incoming,
   });
 
   /// Optional message shown at the top, e.g. when a previous space is gone.
   final String? notice;
   final VoidCallback onCreate;
   final VoidCallback onJoin;
+
+  /// "Pair with their mobile number". Hidden when null.
+  final VoidCallback? onByNumber;
+
+  /// Requests to pair with this user, shown at the top.
+  final Widget? incoming;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +44,7 @@ class PairingChooseStep extends StatelessWidget {
           const SizedBox(height: 16),
           PairingNotice(text: notice!),
         ],
+        if (incoming != null) ...[const SizedBox(height: 16), incoming!],
         const SizedBox(height: 24),
         const Center(child: _TwoHearts()),
         const SizedBox(height: 16),
@@ -72,6 +82,16 @@ class PairingChooseStep extends StatelessWidget {
           body: 'Enter or scan the code your partner shared.',
           onTap: onJoin,
         ),
+        if (onByNumber != null) ...[
+          const SizedBox(height: 14),
+          PairingChoiceCard(
+            icon: Icons.phone_in_talk_outlined,
+            preset: GradientPreset.mint,
+            title: 'Pair with their mobile number',
+            body: 'If they\'ve joined with their number, send them a request.',
+            onTap: onByNumber!,
+          ),
+        ],
         const SizedBox(height: 20),
         GlassPanel(
           dark: dark,

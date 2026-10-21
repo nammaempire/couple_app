@@ -86,6 +86,24 @@ service firebase.storage {
       allow delete: if isMemberOf(coupleId);
     }
 
+    // Memory books: PDFs made on a phone, shared with the partner.
+    match /couples/{coupleId}/books/{fileId} {
+      allow read, delete: if isMemberOf(coupleId);
+      allow create: if isMemberOf(coupleId) &&
+        request.resource.size < 50 * 1024 * 1024 &&
+        request.resource.contentType == 'application/pdf';
+    }
+
+    // Vault files: photos and thumbnails encrypted on the phone. The
+    // server only stores opaque bytes.
+    match /couples/{coupleId}/vault/{fileId} {
+      allow read: if isMemberOf(coupleId);
+      allow create: if isMemberOf(coupleId) &&
+        request.resource.size < 15 * 1024 * 1024 &&
+        request.resource.contentType == 'application/octet-stream';
+      allow delete: if isMemberOf(coupleId);
+    }
+
     // A personal chat background: only its owner ever sees it.
     match /users/{userId}/backgrounds/{fileId} {
       allow read, delete: if request.auth != null &&

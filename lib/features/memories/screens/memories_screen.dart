@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/books/screens/book_builder_screen.dart';
 import 'package:couple_app/features/memories/models/memory.dart';
 import 'package:couple_app/features/memories/providers/memory_providers.dart';
 import 'package:couple_app/features/memories/screens/memory_detail_screen.dart';
@@ -145,6 +146,21 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
               _range == null ? Icons.date_range_outlined : Icons.date_range,
             ),
             onPressed: () => _pickRange(all),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'More',
+            onSelected: (_) =>
+                Navigator.of(context).push(BookBuilderScreen.route()),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'book',
+                child: ListTile(
+                  leading: Icon(Icons.auto_stories_outlined),
+                  title: Text('Make a memory book'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -19,6 +19,8 @@ import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/onboarding/widgets/onboarding_progress.dart';
+import 'package:couple_app/features/onboarding/widgets/pair_by_number_step.dart';
+import 'package:couple_app/features/onboarding/widgets/pair_request_cards.dart';
 import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Onboarding step 3: share the invite and wait for the partner to accept.
@@ -40,6 +42,9 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
   late final CoupleService _couples;
 
   bool _busy = false;
+
+  /// Showing "Pair with their mobile number" instead of the invite.
+  bool _byNumber = false;
 
   @override
   void initState() {
@@ -136,6 +141,8 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
     final dark = b == Brightness.dark;
     const preset = GradientPreset.festive;
 
+    if (_byNumber) return _byNumberPage(context);
+
     return RomanceBackdrop(
       preset: GradientPreset.blush,
       strength: .5,
@@ -161,7 +168,13 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: staggered([
                     const OnboardingProgress(step: OnboardingStep.invite),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 16),
+                    IncomingPairRequests(
+                      uid: widget.me.uid,
+                      myCouple: widget.couple,
+                    ),
+                    OutgoingPairRequestCard(uid: widget.me.uid),
+                    const SizedBox(height: 2),
                     AnimatedGradientCard(
                       preset: preset,
                       radius: 30,
@@ -278,6 +291,15 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
                       icon: const Icon(Icons.ios_share),
                       label: const Text('Share invite'),
                     ),
+                    const SizedBox(height: 10),
+                    OutlinedButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _byNumber = true),
+                      style: pillOutlineStyle(context),
+                      icon: const Icon(Icons.phone_in_talk_outlined),
+                      label: const Text('Pair with their mobile number'),
+                    ),
                     const SizedBox(height: 20),
 
                     const Center(child: _WaitingIndicator()),
@@ -298,6 +320,47 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
                       child: const Text('My partner already sent me a code'),
                     ),
                   ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// "Pair with their mobile number", in place of the invite (not a pushed
+  /// route, so nothing is left behind when the auth gate moves on).
+  Widget _byNumberPage(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) setState(() => _byNumber = false);
+      },
+      child: RomanceBackdrop(
+        preset: GradientPreset.mint,
+        strength: .5,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: romanceAppBar(
+            leading: BackButton(
+              onPressed: () => setState(() => _byNumber = false),
+            ),
+            title: const Text('Pair by number'),
+          ),
+          body: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: PairByNumberStep(
+                    me: widget.me,
+                    couple: widget.couple,
+                    onShareInvite: _share,
+                    onSent: () => setState(() => _byNumber = false),
+                  ),
                 ),
               ),
             ),

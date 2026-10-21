@@ -96,6 +96,25 @@ class AppUser {
   /// hidden on this account only.
   final DateTime? chatClearedAt;
 
+  /// When they confirmed they are 18 or older, for the private vault, if
+  /// they have no birthday set (`users/{uid}.adultConfirmedAt`).
+  final DateTime? adultConfirmedAt;
+
+  /// Their verified mobile number in E.164 form (`+919876543210`), if they
+  /// signed in with it or added it.
+  final String? phone;
+
+  /// "Mute my partner" while a pairing is ending: no alerts, banners or
+  /// badges for the partner's activity, and their calls are not rung.
+  final bool mutePartner;
+
+  /// Set by the server when this user's pairing ended; cleared once they
+  /// have seen the "your pairing has ended" screen.
+  final DateTime? pairingEndedAt;
+
+  /// How it ended: `agreed`, `oneSided` or `leftNow`.
+  final String? pairingEndedHow;
+
   /// Whether their profile picture should be drawn as the avatar.
   bool get showsAvatar =>
       avatar != null && (avatarAsPhoto ?? (photoUrl == null));
@@ -115,6 +134,11 @@ class AppUser {
     this.avatar,
     this.avatarAsPhoto,
     this.chatClearedAt,
+    this.adultConfirmedAt,
+    this.phone,
+    this.mutePartner = false,
+    this.pairingEndedAt,
+    this.pairingEndedHow,
   });
 
   factory AppUser.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -146,6 +170,11 @@ class AppUser {
       avatar: AvatarConfig.fromMap(data['avatar']),
       avatarAsPhoto: data['avatarAsPhoto'] as bool?,
       chatClearedAt: (data['chatClearedAt'] as Timestamp?)?.toDate(),
+      adultConfirmedAt: (data['adultConfirmedAt'] as Timestamp?)?.toDate(),
+      phone: data['phone'] as String?,
+      mutePartner: (data['mutePartner'] as bool?) ?? false,
+      pairingEndedAt: (data['pairingEndedAt'] as Timestamp?)?.toDate(),
+      pairingEndedHow: data['pairingEndedHow'] as String?,
     );
   }
 
@@ -171,6 +200,11 @@ class AppUser {
       avatar: avatar,
       avatarAsPhoto: avatarAsPhoto,
       chatClearedAt: chatClearedAt,
+      adultConfirmedAt: adultConfirmedAt,
+      phone: phone,
+      mutePartner: mutePartner,
+      pairingEndedAt: pairingEndedAt,
+      pairingEndedHow: pairingEndedHow,
     );
   }
 }

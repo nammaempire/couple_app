@@ -11,10 +11,14 @@ class WelcomeScreen extends StatelessWidget {
     super.key,
     required this.onGetStarted,
     required this.onSignIn,
+    this.onPhone,
   });
 
   final VoidCallback onGetStarted;
   final VoidCallback onSignIn;
+
+  /// "Continue with mobile number". Hidden when null.
+  final VoidCallback? onPhone;
 
   @override
   Widget build(BuildContext context) {
@@ -126,6 +130,19 @@ class WelcomeScreen extends StatelessWidget {
                                 child: const Text('Get started'),
                               ),
                             ),
+                            if (onPhone != null) ...[
+                              const SizedBox(height: 10),
+                              enter(
+                                OutlinedButton.icon(
+                                  onPressed: onPhone,
+                                  style: pillOutlineStyle(context),
+                                  icon: const Icon(Icons.phone_iphone_rounded),
+                                  label: const Text(
+                                    'Continue with mobile number',
+                                  ),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 6),
                             TextButton(
                               onPressed: onSignIn,

@@ -14,6 +14,8 @@ class GoogleSignInSetupException implements Exception {
 }
 
 /// Email/password and Google auth, plus the matching `users/{uid}` profile.
+/// Mobile-number sign-in goes through `PhoneAuthGateway`, then
+/// [ensureProfile].
 class AuthService {
   AuthService({
     FirebaseAuth? auth,
@@ -113,6 +115,16 @@ class AuthService {
     return true;
   }
 
+  /// Makes sure the signed-in user has a profile document, e.g. after
+  /// signing in with a mobile number for the first time. Returns their uid,
+  /// or null when nobody is signed in.
+  Future<String?> ensureProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    await _ensureProfile(user);
+    return user.uid;
+  }
+
   /// Creates a profile document for a first-time sign-in. Existing profiles
   /// are left untouched.
   Future<void> _ensureProfile(
@@ -193,6 +205,11 @@ class AuthService {
 
   Future<void> saveNotificationPrefs(NotificationPrefs prefs) =>
       _mergeMine({'notificationPrefs': prefs.toMap()});
+
+  /// Records that the user confirmed they are 18 or older (for the private
+  /// vault, when no birthday is set).
+  Future<void> confirmAdult() =>
+      _mergeMine({'adultConfirmedAt': FieldValue.serverTimestamp()});
 
   Future<void> markPrivacyReviewed() => _mergeMine({'privacyReviewed': true});
 

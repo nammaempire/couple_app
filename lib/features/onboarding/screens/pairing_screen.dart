@@ -13,15 +13,20 @@ import 'package:couple_app/features/couple/models/invite.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/onboarding/screens/qr_scan_screen.dart';
-import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
+import 'package:couple_app/features/onboarding/widgets/invite_share.dart';
+import 'package:couple_app/features/onboarding/widgets/pair_by_number_step.dart';
+import 'package:couple_app/features/onboarding/widgets/pair_request_cards.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_choose_step.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_confirm_step.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_create_step.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_join_step.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
-enum _Mode { choose, create, join, confirm }
+enum _Mode { choose, create, join, confirm, byNumber }
 
-/// Onboarding step 2: create a couple space, or join one with an invite.
+/// Onboarding step 2: create a couple space, join one with an invite, or
+/// pair with the partner's mobile number. Requests from someone who asked
+/// to pair with this user's number show at the top.
 ///
 /// All sub-steps live in this one widget rather than as pushed routes, so
 /// when pairing succeeds and [AuthGate] swaps screens there is no stale route
@@ -45,6 +50,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
   late final AuthService _auth;
   late final CoupleService _couples;
   late final StorageService _storage;
+  late final InviteSharer _shareInvite;
 
   @override
   void initState() {
@@ -52,6 +58,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     _auth = ref.read(authServiceProvider);
     _couples = ref.read(coupleServiceProvider);
     _storage = ref.read(storageServiceProvider);
+    _shareInvite = ref.read(inviteSharerProvider);
   }
 
   _Mode _mode = _Mode.choose;
@@ -120,6 +127,17 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           .catchError((_) {});
     }
   }, 'Could not create your space. Try again.');
+
+  /// "They haven't joined yet": makes this user's space (the invite screen
+  /// takes over once it exists) and opens the share sheet with its code.
+  Future<void> _createAndShare() async {
+    final couple = await _couples.createCouple(
+      widget.uid,
+      inviterName: widget.me?.displayName ?? 'Your partner',
+      inviterPhotoUrl: widget.me?.photoUrl,
+    );
+    await _shareInvite(inviteShareText(couple.inviteCode));
+  }
 
   Future<void> _findInvite() async {
     final code = InviteCode.extract(_code.text);
@@ -193,6 +211,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               _Mode.create => 'Create your space',
               _Mode.join => 'Join your partner',
               _Mode.confirm => 'Accept invite',
+              _Mode.byNumber => 'Pair by number',
             }),
             actions: [
               if (!canGoBack)
@@ -216,8 +235,16 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                       child: switch (_mode) {
                         _Mode.choose => PairingChooseStep(
                           notice: widget.notice,
+                          incoming: IncomingPairRequests(uid: widget.uid),
                           onCreate: () => _go(_Mode.create),
                           onJoin: () => _go(_Mode.join),
+                          onByNumber: widget.me == null
+                              ? null
+                              : () => _go(_Mode.byNumber),
+                        ),
+                        _Mode.byNumber => PairByNumberStep(
+                          me: widget.me!,
+                          onShareInvite: _createAndShare,
                         ),
                         _Mode.create => PairingCreateStep(
                           couplePhoto: _couplePhoto,

@@ -9,23 +9,67 @@ import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/core/widgets/name_edit_dialog.dart';
 import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/app_lock/widgets/app_lock_settings_sheet.dart';
+import 'package:couple_app/features/security/widgets/us_security_row.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/avatar/providers/avatar_providers.dart';
 import 'package:couple_app/features/avatar/screens/avatar_builder_screen.dart';
+import 'package:couple_app/features/auth/models/phone_number.dart';
 import 'package:couple_app/features/avatar/widgets/avatar_view.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/couple/providers/separation_providers.dart';
+import 'package:couple_app/features/couple/widgets/separation_banner.dart';
 import 'package:couple_app/features/home/models/daily_question.dart';
 import 'package:couple_app/features/home/providers/home_providers.dart';
+import 'package:couple_app/features/onboarding/screens/phone_sign_in_screen.dart';
 import 'package:couple_app/features/onboarding/widgets/notification_prefs_sheet.dart';
 import 'package:couple_app/features/onboarding/widgets/privacy_sheet.dart';
 import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
+import 'package:couple_app/features/premium/widgets/premium_us_group.dart';
+import 'package:couple_app/features/us/screens/end_pairing_screen.dart';
+import 'package:couple_app/features/us/screens/leave_now_screen.dart';
 import 'package:couple_app/features/us/widgets/archived_answer.dart';
+import 'package:couple_app/features/us/widgets/confirm_its_you.dart';
 import 'package:couple_app/features/us/widgets/settings_section_header.dart';
 import 'package:couple_app/features/us/widgets/us_hero_card.dart';
+import 'package:couple_app/features/vault/widgets/vault_us_row.dart';
 
 /// Relationship settings and the archive of answered daily questions.
 class UsScreen extends ConsumerWidget {
-  const UsScreen({super.key});
+  const UsScreen({super.key, this.onOpenChat});
+
+  /// Switches to the Chat tab ("Message Asha" while a pairing is ending).
+  final VoidCallback? onOpenChat;
+
+  Future<void> _addPhone(BuildContext context) async {
+    final added = await Navigator.of(
+      context,
+    ).push<bool>(PhoneSignInScreen.linkRoute());
+    if (added == true && context.mounted) {
+      context.showSnackMessage('Mobile number added');
+    }
+  }
+
+  Future<void> _leaveNow(BuildContext context, WidgetRef ref) async {
+    final ok = await confirmItsYou(
+      context,
+      ref,
+      reason: 'Confirm it\'s you to leave now',
+    );
+    if (!ok || !context.mounted) return;
+    await Navigator.of(context).push(LeaveNowScreen.route());
+  }
+
+  Future<void> _setMute(BuildContext context, WidgetRef ref, bool muted) async {
+    final uid = ref.read(currentUidProvider);
+    final service = ref.read(separationServiceProvider);
+    try {
+      await service.setMutePartner(uid: uid, muted: muted);
+    } catch (_) {
+      if (context.mounted) {
+        context.showSnackMessage('Couldn\'t update. Try again.');
+      }
+    }
+  }
 
   Future<void> _editMyName(BuildContext context, WidgetRef ref) async {
     final me = ref.read(currentUserProvider);
@@ -129,6 +173,8 @@ class UsScreen extends ConsumerWidget {
     final partnerUid = couple.partnerIdFor(me.uid);
     final appLock = ref.watch(appLockControllerProvider);
     final partner = ref.watch(partnerProvider).value;
+    final separation = couple.separation;
+    final separating = couple.isSeparating;
 
     final theme = Theme.of(context);
     final startDate = couple.startDate;
@@ -152,6 +198,11 @@ class UsScreen extends ConsumerWidget {
               startDate: startDate,
             ),
           ),
+          if (separating)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: SeparationBanner(onOpenChat: onOpenChat),
+            ),
 
           enter(const SettingsSectionHeader(label: 'Our dates')),
           enter(
@@ -302,6 +353,12 @@ class UsScreen extends ConsumerWidget {
             ),
           ),
 
+          enter(const SettingsSectionHeader(label: 'Premium & books')),
+          enter(const PremiumUsGroup()),
+
+          const SizedBox(height: 14),
+          enter(const VaultUsRow()),
+
           enter(const SettingsSectionHeader(label: 'Account')),
           enter(
             GradientGroup(
@@ -359,6 +416,21 @@ class UsScreen extends ConsumerWidget {
                   ),
 
                 ListTile(
+                  key: const Key('us-mobile-number'),
+                  leading: const Icon(Icons.phone_iphone_rounded),
+                  title: const Text('Mobile number'),
+                  subtitle: Text(
+                    me.phone == null
+                        ? 'Add mobile number'
+                        : PhoneNumbers.format(me.phone!),
+                  ),
+                  trailing: Icon(
+                    me.phone == null ? Icons.add : Icons.chevron_right,
+                  ),
+                  onTap: () => _addPhone(context),
+                ),
+
+                ListTile(
                   leading: const Icon(Icons.cake_outlined),
                   title: const Text('Your birthday'),
                   subtitle: Text(
@@ -410,6 +482,8 @@ class UsScreen extends ConsumerWidget {
                   onTap: () => showAppLockSheet(context),
                 ),
 
+                const UsSecurityRow(),
+
                 ListTile(
                   leading: const Icon(Icons.qr_code),
                   title: const Text('Invite code'),
@@ -425,6 +499,56 @@ class UsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (couple.isComplete) ...[
+            enter(const SettingsSectionHeader(label: 'Our pairing')),
+            enter(
+              GradientGroup(
+                key: const Key('our-pairing'),
+                preset: GradientPreset.mint,
+                children: [
+                  if (separation == null && couple.ending == null)
+                    ListTile(
+                      leading: const Icon(Icons.spa_outlined),
+                      title: const Text('End our pairing'),
+                      subtitle: const Text('Gently, with time for both of you'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () =>
+                          Navigator.of(context).push(EndPairingScreen.route()),
+                    )
+                  else ...[
+                    if (separation != null)
+                      ListTile(
+                        leading: const Icon(Icons.event_outlined),
+                        title: Text(
+                          'Ends on ${separationDate(separation.effectiveAt)}',
+                        ),
+                        subtitle: const Text(
+                          'Everything you shared will be deleted',
+                        ),
+                      ),
+                    SwitchListTile(
+                      key: const Key('mute-partner-switch'),
+                      secondary: const Icon(Icons.notifications_off_outlined),
+                      title: Text('Mute $partnerName'),
+                      subtitle: const Text(
+                        'No alerts, banners or calls from them',
+                      ),
+                      value: me.mutePartner,
+                      onChanged: (v) => _setMute(context, ref, v),
+                    ),
+                    if (couple.ending == null)
+                      ListTile(
+                        key: const Key('us-leave-now'),
+                        leading: const Icon(Icons.shield_outlined),
+                        title: const Text('I need to leave now'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _leaveNow(context, ref),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           enter(
             Material(

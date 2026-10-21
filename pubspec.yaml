@@ -21,6 +21,10 @@ dependencies:
   firebase_auth: ^5.3.3
   cloud_firestore: ^5.5.0
   firebase_storage: ^12.3.6
+  # Ending a pairing on the server (finalizeSeparation, leaveNow). Pinned to
+  # the last release built on firebase_core 3.x (July 2025); 6.x needs
+  # firebase_core 4.
+  cloud_functions: 5.6.2
 
   # Media
   image_picker: ^1.1.2
@@ -68,6 +72,27 @@ dependencies:
   local_auth_darwin: 2.0.4
   shared_preferences: 2.5.5
 
+  # Private vault: end-to-end encryption (X25519, AES-GCM, HKDF, Argon2id in
+  # pure Dart), this phone's private key and passcode state in the Android
+  # keystore, and JPEG re-encoding of photos before they are encrypted.
+  # Pinned to releases at least two weeks old.
+  cryptography: 2.9.0
+  flutter_secure_storage: 11.2.0
+  flutter_secure_storage_platform_interface: 2.1.1
+  image: 4.10.1
+  archive: 4.3.0
+
+  # Premium, gifts and memory books: Google Play billing, and the memory
+  # book PDF made on the phone (pure Dart) with a viewer and share sheet.
+  # Pinned to releases at least two weeks old; the plugin's newest Android
+  # and StoreKit implementations were days old when this was added.
+  in_app_purchase: 3.3.1
+  in_app_purchase_android: 0.5.3
+  in_app_purchase_storekit: 0.4.13
+  in_app_purchase_platform_interface: 1.4.1
+  pdf: 3.13.1
+  printing: 5.15.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -79,3 +104,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    # Fonts embedded in memory book PDFs (licences in the folder).
+    - assets/fonts/book/

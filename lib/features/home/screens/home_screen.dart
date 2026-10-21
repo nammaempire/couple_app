@@ -5,6 +5,7 @@ import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/couple/widgets/separation_banner.dart';
 import 'package:couple_app/features/home/models/daily_question.dart';
 import 'package:couple_app/features/home/models/important_date.dart';
 import 'package:couple_app/features/home/models/love_tap.dart';
@@ -22,6 +23,7 @@ import 'package:couple_app/features/memories/providers/memory_providers.dart';
 import 'package:couple_app/features/memories/screens/memory_detail_screen.dart';
 import 'package:couple_app/features/memories/screens/memory_editor_screen.dart';
 import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
+import 'package:couple_app/features/premium/widgets/unopened_gift_card.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
 import 'package:couple_app/features/together/screens/event_editor_screen.dart';
 import 'package:couple_app/features/together/screens/note_composer_screen.dart';
@@ -155,6 +157,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               couplePhotoUrl: couple.photoUrl,
             ),
             const SizedBox(height: 16),
+            if (couple.isSeparating) ...[
+              SeparationBanner(onOpenChat: widget.onOpenChat),
+              const SizedBox(height: 16),
+            ],
+            const UnopenedGiftCard(),
 
             QuickActions(
               actions: [

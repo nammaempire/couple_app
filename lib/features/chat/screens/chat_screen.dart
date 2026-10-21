@@ -44,6 +44,8 @@ import 'package:couple_app/features/chat/widgets/system_message_line.dart';
 import 'package:couple_app/features/chat/widgets/upload_progress_bar.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/couple/providers/separation_providers.dart';
+import 'package:couple_app/features/couple/widgets/separation_banner.dart';
 import 'package:couple_app/features/stickers/widgets/sticker_picker_sheet.dart';
 
 enum _MenuAction { search, media, pinned, theme, screenshots, clear }
@@ -564,6 +566,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
         },
         onTogglePin: () => _setPinned(message, !message.pinned),
         onDelete: () => _confirmDelete(message),
+        allowCopy: !ref.read(separationActiveProvider),
       ),
       isScrollControlled: true,
     );
@@ -928,6 +931,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
             bottom: false,
             child: Column(
               children: [
+                // While the pairing is ending: a one-line strip.
+                const SeparationBanner(compact: true),
                 StreamBuilder<List<Message>>(
                   stream: _pinnedStream,
                   builder: (context, snap) {

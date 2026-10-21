@@ -4,6 +4,7 @@ import 'package:couple_app/core/providers/core_providers.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/chat/data/chat_service.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/couple/providers/separation_providers.dart';
 
 final chatServiceProvider = Provider<ChatService>(
   (ref) => ChatService(storage: ref.watch(storageServiceProvider)),
@@ -26,9 +27,19 @@ final chatClearedAtProvider = Provider.autoDispose<DateTime?>((ref) {
 
 /// Whether the couple has turned on "block screenshots of our chat".
 final blockScreenshotsProvider = Provider.autoDispose<bool>(
-  (ref) => ref.watch(
-    coupleProvider.select((couple) => couple.value?.blockScreenshots ?? false),
-  ),
+  (ref) =>
+      ref.watch(
+        coupleProvider.select(
+          (couple) => couple.value?.blockScreenshots ?? false,
+        ),
+      ) ||
+      ref.watch(screenshotsForcedProvider),
+);
+
+/// Screenshots of the chat are blocked regardless of the switch while the
+/// pairing is ending.
+final screenshotsForcedProvider = Provider.autoDispose<bool>(
+  (ref) => ref.watch(separationActiveProvider),
 );
 
 /// What the signed-in user is called in system lines the partner sees on

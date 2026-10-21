@@ -13,6 +13,7 @@ import 'package:couple_app/core/widgets/floating_hearts.dart';
 import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/couple/providers/separation_providers.dart';
 import 'package:couple_app/features/memories/data/memory_service.dart';
 import 'package:couple_app/features/memories/models/memory.dart';
 import 'package:couple_app/features/memories/providers/memory_providers.dart';
@@ -170,6 +171,7 @@ class _MemoryDetailScreenState extends ConsumerState<MemoryDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final separating = ref.watch(separationActiveProvider);
 
     return StreamBuilder<Memory?>(
       stream: _stream,
@@ -429,22 +431,25 @@ class _MemoryDetailScreenState extends ConsumerState<MemoryDetailScreen> {
                   favorite: !memory.favorite,
                 ),
               ),
-              const SizedBox(width: 4),
-              IconButton(
-                tooltip: 'Share or save',
-                style: buttonStyle,
-                icon: _sharing
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: fg,
-                        ),
-                      )
-                    : const Icon(Icons.ios_share),
-                onPressed: _sharing ? null : () => _share(memory),
-              ),
+              // Nothing leaves the app while the pairing is ending.
+              if (!separating) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Share or save',
+                  style: buttonStyle,
+                  icon: _sharing
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: fg,
+                          ),
+                        )
+                      : const Icon(Icons.ios_share),
+                  onPressed: _sharing ? null : () => _share(memory),
+                ),
+              ],
               const SizedBox(width: 4),
               PopupMenuButton<String>(
                 style: buttonStyle,

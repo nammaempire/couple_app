@@ -52,22 +52,153 @@ service cloud.firestore {
          isMemberOf(resource.data.coupleId))
       );
 
+      // A phone number on the profile is always the one this account
+      // verified by SMS. `mutePartner` is a plain switch. The server writes
+      // `pairingEndedAt` / `pairingEndedHow` when a pairing ends; the person
+      // may only clear them.
+      function profileExtrasOk(phoneChanged) {
+        let d = request.resource.data;
+        return (!phoneChanged || !('phone' in d) || d.phone == null ||
+                d.phone == request.auth.token.get('phone_number', null)) &&
+          (!('mutePartner' in d) || d.mutePartner is bool) &&
+          (!('blockNewPhoneUntil' in d) || d.blockNewPhoneUntil == null ||
+           d.blockNewPhoneUntil is timestamp);
+      }
+
+      function pairingEndedUntouched() {
+        return (!('pairingEndedAt' in changedKeys()) ||
+                !('pairingEndedAt' in request.resource.data)) &&
+          (!('pairingEndedHow' in changedKeys()) ||
+           !('pairingEndedHow' in request.resource.data));
+      }
+
       // New profiles start unpaired.
       allow create: if signedIn() &&
         request.auth.uid == userId &&
         request.resource.data.get('coupleId', null) == null &&
-        avatarOk();
+        !('pairingEndedAt' in request.resource.data) &&
+        avatarOk() && profileExtrasOk(true);
 
       // You may edit your own profile. `coupleId` can only point at a couple
       // you are actually a member of (after this write), or be cleared.
       allow update: if signedIn() &&
-        request.auth.uid == userId && avatarOk() && (
+        request.auth.uid == userId && avatarOk() &&
+        profileExtrasOk('phone' in changedKeys()) &&
+        pairingEndedUntouched() && (
           !('coupleId' in changedKeys()) ||
           request.resource.data.coupleId == null ||
           isMemberAfter(request.resource.data.coupleId)
         );
 
       allow delete: if false;
+
+      // Phones that passed the new-phone check (recycled-number
+      // protection). The owner manages them; the partner may see the list.
+      match /devices/{deviceId} {
+        allow read: if signedIn() && (request.auth.uid == userId ||
+          (get(/databases/$(database)/documents/users/$(userId)).data
+             .get('coupleId', null) != null &&
+           isMemberOf(get(/databases/$(database)/documents/users/$(userId))
+             .data.coupleId)));
+        allow create: if signedIn() && request.auth.uid == userId &&
+          request.resource.data.keys().hasOnly(['name', 'addedAt',
+            'lastSeenAt', 'via']) &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() <= 60 &&
+          request.resource.data.addedAt == request.time &&
+          request.resource.data.lastSeenAt == request.time &&
+          request.resource.data.via in ['first', 'partner', 'email', 'wait'];
+        allow update: if signedIn() && request.auth.uid == userId &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['lastSeenAt']) &&
+          request.resource.data.lastSeenAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == userId;
+      }
+
+      // Security notices for the account owner. Their partner may post the
+      // one that says they turned down a sign-in on a new phone.
+      match /securityEvents/{eventId} {
+        allow read, delete: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn() &&
+          request.resource.data.keys().hasOnly(['type', 'deviceName', 'at']) &&
+          request.resource.data.deviceName is string &&
+          request.resource.data.deviceName.size() <= 60 &&
+          request.resource.data.at == request.time && (
+            (request.auth.uid == userId &&
+             request.resource.data.type in
+               ['newPhoneRejected', 'newPhoneWaiting', 'newPhoneApproved']) ||
+            (request.resource.data.type == 'newPhoneRejected' &&
+             get(/databases/$(database)/documents/users/$(userId)).data
+               .get('coupleId', null) != null &&
+             isMemberOf(get(/databases/$(database)/documents/users/$(userId))
+               .data.coupleId)));
+        allow update: if false;
+      }
+    }
+
+    // ---- Phone numbers and pairing by number -----------------------------
+
+    // phoneIndex/{+919876543210}: which account a verified number belongs
+    // to, so a partner can be found by number. One doc can be fetched at a
+    // time but never listed. Only the account that verified the number by
+    // SMS may claim it (a recycled number moves to its new owner).
+    match /phoneIndex/{e164} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() &&
+        request.auth.token.get('phone_number', null) == e164 &&
+        request.resource.data.keys().hasOnly(['uid', 'createdAt']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // pairRequests/{id}: "Asha wants to pair with you". The sender offers
+    // their couple of one and its invite code; the receiver accepts by
+    // joining with that code (the invite rules above), then marks it.
+    match /pairRequests/{requestId} {
+      function e164OrEmpty(v) {
+        return v is string && (v == '' || v.matches('^[+][1-9][0-9]{6,14}$'));
+      }
+
+      allow read: if signedIn() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid);
+      allow create: if signedIn() &&
+        request.resource.data.keys().hasOnly(['fromUid', 'fromName',
+          'fromPhone', 'toUid', 'toPhone', 'coupleId', 'inviteCode',
+          'status', 'createdAt']) &&
+        request.resource.data.fromUid == request.auth.uid &&
+        request.resource.data.toUid is string &&
+        request.resource.data.toUid != request.auth.uid &&
+        request.resource.data.fromName is string &&
+        request.resource.data.fromName.size() <= 60 &&
+        e164OrEmpty(request.resource.data.fromPhone) &&
+        e164OrEmpty(request.resource.data.toPhone) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdAt == request.time &&
+        get(coupleDoc(request.resource.data.coupleId)).data.memberIds ==
+          [request.auth.uid] &&
+        get(coupleDoc(request.resource.data.coupleId)).data.inviteCode ==
+          request.resource.data.inviteCode;
+      // Only the status moves, once, out of 'pending': the receiver
+      // accepts or declines, the sender cancels.
+      allow update: if signedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status']) &&
+        resource.data.status == 'pending' && (
+          (request.auth.uid == resource.data.toUid &&
+           request.resource.data.status in ['accepted', 'declined']) ||
+          (request.auth.uid == resource.data.fromUid &&
+           request.resource.data.status == 'cancelled'));
+      allow delete: if signedIn() &&
+        resource.data.fromUid == request.auth.uid;
+    }
+
+    // purchases/{hash}: written only by the server when it verifies a
+    // Google Play purchase.
+    match /purchases/{purchaseId} {
+      allow read, write: if false;
     }
 
     // ---- Invites ---------------------------------------------------------
@@ -125,7 +256,19 @@ service cloud.firestore {
          request.resource.data.chatClearedBy == request.auth.uid) &&
         // A shared "no screenshots in our chat" switch.
         (!('blockScreenshots' in changedKeys()) ||
-         request.resource.data.blockScreenshots is bool)) ||
+         request.resource.data.blockScreenshots is bool) &&
+        separationOk() &&
+        // `ending` is the server's own lock while it deletes a couple.
+        !('ending' in changedKeys()) &&
+        // Premium is granted only by the server after it verifies a
+        // purchase. A Memory book credit can only be spent: down by one,
+        // never below zero (the book itself is checked under /books).
+        !('premium' in changedKeys()) &&
+        (!('bookCredits' in changedKeys()) ||
+         (request.resource.data.bookCredits is int &&
+          request.resource.data.bookCredits ==
+            resource.data.get('bookCredits', 0) - 1 &&
+          request.resource.data.bookCredits >= 0))) ||
 
         // Joining: a non-member adds only themselves to a couple of one,
         // and only by consuming this couple's invite in the same transaction.
@@ -139,6 +282,57 @@ service cloud.firestore {
          getAfter(inviteDoc(resource.data.inviteCode)).data.usedBy ==
            request.auth.uid)
       );
+
+      // Ending a pairing (`separation`). Either partner asks; it takes
+      // effect 14 days later, or 7 days after the other agrees, whichever is
+      // sooner. The other partner may agree or decline but can never stop
+      // it; only the one who asked can cancel. The server deletes everything
+      // once `effectiveAt` has passed (functions/).
+      function within(t, days) {
+        return t is timestamp &&
+          t > request.time + duration.value(days * 1440 - 10, 'm') &&
+          t < request.time + duration.value(days * 1440 + 10, 'm');
+      }
+
+      function separationOk() {
+        let before = resource.data.get('separation', null);
+        let after = request.resource.data.get('separation', null);
+        let me = request.auth.uid;
+        return !('separation' in changedKeys()) || (
+          // Asking.
+          (before == null && after != null &&
+           after.keys().hasOnly(['requestedBy', 'requestedAt', 'status',
+             'agreedAt', 'declinedAt', 'effectiveAt']) &&
+           after.requestedBy == me && after.requestedAt == request.time &&
+           after.status == 'requested' &&
+           after.agreedAt == null && after.declinedAt == null &&
+           within(after.effectiveAt, 14)) ||
+          // Changing their mind: only the one who asked.
+          (before != null && after == null && before.requestedBy == me) ||
+          // The other partner agrees (also after declining): it ends 7 days
+          // from now, or on the original date if that is sooner.
+          (before != null && after != null && before.requestedBy != me &&
+           before.status in ['requested', 'declined'] &&
+           after.status == 'agreed' && after.agreedAt == request.time &&
+           after.requestedBy == before.requestedBy &&
+           after.requestedAt == before.requestedAt &&
+           after.declinedAt == before.declinedAt &&
+           after.keys().hasOnly(['requestedBy', 'requestedAt', 'status',
+             'agreedAt', 'declinedAt', 'effectiveAt']) &&
+           (after.effectiveAt == before.effectiveAt ||
+            (within(after.effectiveAt, 7) &&
+             after.effectiveAt <= before.effectiveAt))) ||
+          // The other partner declines: nothing else changes.
+          (before != null && after != null && before.requestedBy != me &&
+           before.status == 'requested' &&
+           after.status == 'declined' && after.declinedAt == request.time &&
+           after.requestedBy == before.requestedBy &&
+           after.requestedAt == before.requestedAt &&
+           after.agreedAt == before.agreedAt &&
+           after.effectiveAt == before.effectiveAt &&
+           after.keys().hasOnly(['requestedBy', 'requestedAt', 'status',
+             'agreedAt', 'declinedAt', 'effectiveAt'])));
+      }
 
       // A couple still waiting for a partner can be cancelled by its creator.
       allow delete: if signedIn() &&
@@ -483,6 +677,163 @@ service cloud.firestore {
 
       // ---- Chat look: colour and background both partners see ----------
       // Only `settings/chatLook` exists today. Either partner may change it.
+      // A sign-in on a new phone waiting for the partner to confirm it's
+      // really them (recycled-number protection). Only the OTHER partner
+      // decides, once.
+      match /deviceChecks/{checkId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.keys().hasOnly(['uid', 'deviceId',
+            'deviceName', 'createdAt', 'status', 'code']) &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.deviceId is string &&
+          request.resource.data.deviceId.size() <= 64 &&
+          request.resource.data.deviceName is string &&
+          request.resource.data.deviceName.size() <= 60 &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.code is int &&
+          request.resource.data.code >= 10 && request.resource.data.code <= 99;
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.uid != request.auth.uid &&
+          resource.data.status == 'pending' &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'decidedBy', 'decidedAt']) &&
+          request.resource.data.status in ['approved', 'rejected'] &&
+          request.resource.data.decidedBy == request.auth.uid &&
+          request.resource.data.decidedAt == request.time;
+        allow delete: if isMemberOf(coupleId) &&
+          resource.data.uid == request.auth.uid;
+      }
+
+      // ---- Premium, gifts and Memory books --------------------------------
+      // Gifts are created by the server when it verifies a gift purchase.
+      // The partner it's for marks it opened, once.
+      match /gifts/{giftId} {
+        allow read: if isMemberOf(coupleId);
+        allow create, delete: if false;
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.toUid == request.auth.uid &&
+          resource.data.get('openedAt', null) == null &&
+          changedKeys().hasOnly(['openedAt']) &&
+          request.resource.data.openedAt == request.time;
+      }
+
+      // A Memory book costs one credit: the same batch that creates it
+      // takes one from the couple's bookCredits.
+      match /books/{bookId} {
+        allow read: if isMemberOf(coupleId);
+        allow create: if isMemberOf(coupleId) &&
+          request.resource.data.keys().hasOnly(['createdBy', 'title',
+            'fromDate', 'toDate', 'pageCount', 'storagePath', 'createdAt']) &&
+          request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 80 &&
+          request.resource.data.fromDate is timestamp &&
+          request.resource.data.toDate is timestamp &&
+          request.resource.data.fromDate <= request.resource.data.toDate &&
+          request.resource.data.pageCount is int &&
+          request.resource.data.pageCount > 0 &&
+          request.resource.data.pageCount <= 500 &&
+          request.resource.data.storagePath ==
+            'couples/' + coupleId + '/books/' + bookId + '.pdf' &&
+          request.resource.data.createdAt == request.time &&
+          get(coupleDoc(coupleId)).data.get('bookCredits', 0) >= 1 &&
+          getAfter(coupleDoc(coupleId)).data.get('bookCredits', 0) ==
+            get(coupleDoc(coupleId)).data.get('bookCredits', 0) - 1;
+        allow update: if isMemberOf(coupleId) &&
+          resource.data.createdBy == request.auth.uid &&
+          changedKeys().hasOnly(['title']) &&
+          request.resource.data.title is string &&
+          request.resource.data.title.size() > 0 &&
+          request.resource.data.title.size() <= 80;
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      // ---- Vault: end-to-end encrypted private space --------------------
+      // Everything readable is encrypted on the phones (see
+      // lib/features/vault). The server only ever sees ciphertext, device
+      // public keys and wrapped keys, so these rules check shape and
+      // membership; which phone may read the vault is decided by which
+      // devices hold a wrapped key, approved on a partner's phone.
+      // While a pairing is ending, the vault is closed for both: nothing
+      // can be read or added, and the server wipes it with everything else.
+      function separating() {
+        return get(coupleDoc(coupleId)).data.get('separation', null) != null;
+      }
+
+      match /vault/{docId} {
+        function validMeta() {
+          let d = request.resource.data;
+          return docId == 'meta' && d.version == 1 &&
+            isMember(d.createdBy) &&
+            d.devices is map && d.devices.size() <= 8 &&
+            d.keys is map && d.keys.size() <= 8 &&
+            d.verifier is string && d.verifier.size() <= 4000 &&
+            d.updatedBy == request.auth.uid &&
+            d.updatedAt == request.time;
+        }
+
+        allow read: if isMemberOf(coupleId) && !separating();
+        allow create: if isMemberOf(coupleId) && !separating() && validMeta() &&
+          request.resource.data.createdBy == request.auth.uid;
+        allow update: if isMemberOf(coupleId) && !separating() && validMeta() &&
+          request.resource.data.createdBy == resource.data.createdBy;
+        // "Delete vault for both".
+        allow delete: if isMemberOf(coupleId) && !separating();
+      }
+
+      match /vaultItems/{itemId} {
+        function vaultPath(field) {
+          let v = request.resource.data.get(field, null);
+          return v == null || (v is string && v.size() <= 200 &&
+            v.matches('^couples/' + coupleId + '/vault/[^/]+$'));
+        }
+
+        function validItem() {
+          let d = request.resource.data;
+          return d.senderId == request.auth.uid &&
+            d.kind in ['photo', 'message'] &&
+            d.shelf in ['a', 'b'] &&
+            d.ct is string && d.ct.size() > 0 && d.ct.size() <= 20000 &&
+            vaultPath('photoPath') && vaultPath('thumbPath') &&
+            d.policy in ['keep', 'once', 'day'] &&
+            (d.policy == 'day'
+              ? (d.expiresAt is timestamp &&
+                 d.expiresAt > request.time &&
+                 d.expiresAt < request.time + duration.value(25, 'h'))
+              : d.get('expiresAt', null) == null) &&
+            d.viewedBy is map && d.viewedBy.size() == 0 &&
+            d.createdAt == request.time;
+        }
+
+        allow read: if isMemberOf(coupleId) && !separating();
+        allow create: if isMemberOf(coupleId) && !separating() && validItem();
+        // The only change is marking it seen, and only for yourself.
+        allow update: if isMemberOf(coupleId) && !separating() &&
+          changedKeys().hasOnly(['viewedBy']) &&
+          request.resource.data.viewedBy.diff(resource.data.viewedBy)
+            .affectedKeys().hasOnly([request.auth.uid]) &&
+          request.resource.data.viewedBy[request.auth.uid] is timestamp;
+        // Either partner may delete anything (view-once and expired items
+        // are removed by whichever phone sees them first).
+        allow delete: if isMemberOf(coupleId) && !separating();
+      }
+
+      match /vaultEvents/{eventId} {
+        allow read: if isMemberOf(coupleId) && !separating();
+        allow create: if isMemberOf(coupleId) && !separating() &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.type in ['wrongCode', 'cooldown',
+            'codeChanged', 'deviceAdded', 'deviceApproved', 'wiped'] &&
+          request.resource.data.deviceName is string &&
+          request.resource.data.deviceName.size() <= 60 &&
+          request.resource.data.at == request.time;
+        allow update: if false;
+        allow delete: if isMemberOf(coupleId) && !separating();
+      }
+
       // ---- Music and Watch: saved links and shared sessions --------------
       // `songs` + `listening/now` (music) and `videos` + `watching/now`
       // (YouTube watch-together) share one shape and one set of checks.

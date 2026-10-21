@@ -39,10 +39,16 @@
          prompt; the phone PIN fallback needs no permission. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
 
+    <!-- Backups are off: the private vault's device key lives in the Android
+         keystore and can't move to another phone, and its encrypted copy in
+         app storage must not leave this one (flutter_secure_storage). -->
     <application
         android:label="couple_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules">
         <activity
             android:name=".MainActivity"
             android:exported="true"
