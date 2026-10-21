@@ -12,6 +12,8 @@ import 'package:couple_app/features/avatar/screens/avatar_builder_screen.dart';
 import 'package:couple_app/features/chat/data/chat_service.dart';
 import 'package:couple_app/features/chat/models/message.dart';
 import 'package:couple_app/features/chat/providers/chat_providers.dart';
+import 'package:couple_app/features/chat/widgets/chat_chrome.dart';
+import 'package:couple_app/features/chat/widgets/chat_palette.dart';
 import 'package:couple_app/features/stickers/data/sticker_catalog.dart';
 import 'package:couple_app/features/stickers/data/sticker_quotes.dart';
 import 'package:couple_app/features/stickers/models/sticker_category.dart';
@@ -165,13 +167,23 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet> {
           // (and below the sheet's drag handle).
           final room = math.max(0.0, constraints.maxHeight);
           final height = math.min(media.size.height * .9, room);
+          // The gradient handle is dropped when there's very little room.
+          final handle = height > 260;
+          final body = height - (handle ? 31 : 0);
           return SizedBox(
             height: height,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: _scene == null
-                  ? _buildBrowse(mine, theirs)
-                  : _buildCompose(_scene!, mine, theirs, height: height),
+            child: Column(
+              children: [
+                if (handle) const ChatSheetHeader(),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _scene == null
+                        ? _buildBrowse(mine, theirs)
+                        : _buildCompose(_scene!, mine, theirs, height: body),
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -190,9 +202,11 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 8, 4),
+          padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
           child: Row(
             children: [
+              const GradientBadge(icon: Icons.favorite, size: 34, iconSize: 18),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'Couple stickers',
@@ -228,6 +242,22 @@ class _StickerPickerSheetState extends ConsumerState<StickerPickerSheet> {
                       avatar: Text(category.emoji),
                       label: Text(category.label),
                       showCheckmark: false,
+                      shape: const StadiumBorder(),
+                      selectedColor: theme.colorScheme.primaryContainer,
+                      backgroundColor: theme.colorScheme.surface.withValues(
+                        alpha: .7,
+                      ),
+                      side: BorderSide(
+                        color: category == _category
+                            ? theme.colorScheme.primary.withValues(alpha: .5)
+                            : theme.colorScheme.outlineVariant,
+                      ),
+                      labelStyle: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: category == _category
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurface,
+                      ),
                       selected: category == _category,
                       onSelected: (_) => _pickCategory(category),
                     ),
@@ -581,32 +611,43 @@ class _AvatarBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final palette = ChatPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          key: const ValueKey('sticker-make-avatar'),
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-            child: Row(
-              children: [
-                Icon(Icons.face_retouching_natural, color: scheme.primary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Make your avatar so stickers look like you',
-                    style: TextStyle(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: ChatPalette.diagonal(palette.headerGradient),
+            border: Border.all(color: scheme.primary.withValues(alpha: .25)),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: InkWell(
+            key: const ValueKey('sticker-make-avatar'),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: Row(
+                children: [
+                  const GradientBadge(
+                    icon: Icons.face_retouching_natural,
+                    size: 34,
+                    iconSize: 18,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Make your avatar so stickers look like you',
+                      style: TextStyle(
+                        color: scheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-                Icon(Icons.chevron_right, color: scheme.onPrimaryContainer),
-              ],
+                  Icon(Icons.chevron_right, color: scheme.onSurface),
+                ],
+              ),
             ),
           ),
         ),
@@ -671,10 +712,17 @@ class _QuoteOption extends StatelessWidget {
       child: Material(
         color: selected
             ? scheme.primaryContainer
-            : scheme.surfaceContainerHighest.withValues(alpha: .5),
-        borderRadius: BorderRadius.circular(14),
+            : scheme.surface.withValues(alpha: .7),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(
+            color: selected
+                ? scheme.primary.withValues(alpha: .55)
+                : scheme.outlineVariant.withValues(alpha: .6),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),

@@ -8,7 +8,7 @@ couple with code, QR or share sheet, setup checklist), real-time chat, photo
 sending, voice and video calls, moods, daily question, memories, calendar,
 love notes, Plans (date planner, bucket list, wishlist, places, shared
 expenses) and Play: live games for two (How well do you know me?, Truth or
-Dare, Tic-tac-toe, Connect Four).
+Dare, Tic-tac-toe, Connect Four, Ludo, Snakes & Ladders).
 
 ---
 
@@ -246,13 +246,36 @@ rules), sticker: { id: scene id, e.g. "miss-moon", category: "missYou" }
 The scene is drawn on the phone from both partners' *current* avatars, so
 nothing is uploaded, and older app versions just show the quote as text.
 
+Music:
+
+```
+couples/{id}/songs/{songId}
+  url (https), source ("spotify" | "youtube" | "youtubeMusic" | "appleMusic" |
+  "jioSaavn" | "soundCloud" | "other"), kind ("track" | "video" | "album" |
+  "playlist" | "other"), mediaId (YouTube video id / Spotify id),
+  title, artist, thumbnailUrl, note, moment, lovedBy { uid: true },
+  addedBy, playCount, createdAt, lastPlayedAt
+couples/{id}/listening/now       the one "listen together" session:
+  songId, url, source, mediaId, title, artist, thumbnailUrl,
+  status ("countdown" | "playing" | "paused" | "ended"), positionMs, at
+  (server ms when positionMs was true), queue [songIds], hostUid,
+  updatedBy, listeners { uid: last check-in, server ms }, version, updatedAt
+couples/{id}/listening/clock-{uid}   { t: serverTimestamp } for measuring
+                                     the phone's offset from server time
+```
+
+The rules make every playback change bump `version` by exactly one (the app
+writes in a transaction), and a check-in may only touch your own listener
+entry. A song's link and who added it never change; plays only go up by one.
+
 Background photos: `couples/{id}/backgrounds/` (both partners) and
 `users/{uid}/backgrounds/` (personal, only the owner can read it).
 
 Play (`couples/{coupleId}/games/{id}`), one document per game:
 
 ```
-type ("knowMe" | "truthOrDare" | "ticTacToe" | "connectFour"),
+type ("knowMe" | "truthOrDare" | "ticTacToe" | "connectFour" | "ludo" |
+      "snakesLadders"),
 status ("invited" | "active" | "finished" | "cancelled"),
 createdBy, invitee, players, turn (whoever must act next), state (per game),
 winner (uid | "draw" | null), moveCount, createdAt, updatedAt, finishedAt
@@ -303,6 +326,8 @@ lib/
     us/                     Us tab: profile, couple settings, question archive
     avatar/                 avatar model, painters, builder, AvatarView
     stickers/               couple sticker scenes, quotes, picker, sticker view
+    music/                  song links, oEmbed lookup, listen-together sync,
+                            YouTube player, library, editor, player, banner
 ```
 
 Inside a feature:
@@ -392,6 +417,73 @@ Sorry, Good morning, Good night, Cheer up and Funny, each with ready quotes
 can be reacted to, replied to, pinned, searched by quote and the quote
 copied.
 
+**Music** (Together → Music). Your songs, saved as links from Spotify,
+YouTube, YouTube Music, Apple Music, JioSaavn or SoundCloud. Paste a link
+and the title, artist and cover fill in (YouTube, Spotify and SoundCloud
+oEmbed, no API keys). Tag each song with what it means to you (Our song,
+Romantic, Missing you, Happy, Sad, Road trip, Dance, Chill), add a note,
+heart the ones you love, search and filter.
+
+*Listen together.* Tap ▶ on any song: both phones count down and start at
+the same moment, and the rest of the list follows as "Up next".
+
+- YouTube and YouTube Music links play inside the app. Play, pause, seek and
+  skip on either phone move both, and each phone corrects itself if it
+  drifts more than 1.5 s. Times are in server milliseconds (each phone
+  measures its own clock offset), so phones whose clocks disagree still
+  match. The video stays visible, as YouTube's terms require.
+- Spotify, Apple Music, JioSaavn and other links can't be controlled from
+  another app, so both phones open the song in its own app when the count
+  hits zero; "Start together again" re-syncs. For to-the-second sync in
+  Spotify, use Spotify Jam.
+- While a session is live, a banner above the tabs shows what's playing and
+  lets your partner join.
+
+**Watch together** (Together → Music → Videos). Save YouTube videos (trailers,
+shows, vlogs) and watch them in sync, exactly like songs: shared
+play, pause, seek and skip, a countdown start, Up next, and a fullscreen
+landscape mode. Stored in `couples/{id}/videos` (YouTube single videos only;
+moments movieNight, funny, romantic, food, travel, music, learn, other) with
+the session in `couples/{id}/watching/now` (same shape as `listening/now`).
+Netflix and Hotstar can't be played or controlled inside another app.
+
+Without push notifications (which need Cloud Functions), your partner sees
+the banner when they open the app, not as a notification.
+
+**Clear chat** (Chat ⋮ → Clear chat).
+- *Clear for me* stamps `users/{uid}.chatClearedAt`; messages up to then are
+  hidden on your account only (your partner keeps them, media stays).
+- *Clear for both* stamps `couples/{id}.chatClearedAt` (server time, which
+  the rules check) and `chatClearedBy`, then deletes every message sent up to
+  that moment plus its photos, videos and voice notes, 400 per batch, and
+  posts a "cleared the chat" line. The rules let either partner delete any
+  message sent before the stamp. Rerunning finishes a half-done clear.
+
+**Screenshots** (Chat ⋮ → Screenshots).
+- While the chat (or a photo/video opened from it) is on screen, a screenshot
+  posts a "📸 Asha took a screenshot" line for both of you. Detection uses
+  Android 14's screen-capture callback (`DETECT_SCREEN_CAPTURE`, granted at
+  install), so it works on Android 14+; older phones can't detect it without
+  reading the photo library.
+- "Block screenshots of our chat" (`couples/{id}.blockScreenshots`) sets
+  FLAG_SECURE on both phones while the chat is open, on every Android
+  version: screenshots and recordings come out black.
+- Native code: `android/.../ScreenPrivacy.kt`, wired in `MainActivity.kt`
+  over the `couple_app/screen_privacy` channel.
+- System lines (`chatCleared`, `screenshot`, `screenshotBlock`) are short
+  text only; the rules forbid media, reactions and pins on them.
+
+**App lock** (Us → App lock). Fingerprint, face or the phone's PIN/pattern
+(local_auth, `biometricOnly: false`) to open Us. Per phone, stored with
+shared_preferences: off by default; lock immediately or after 1, 5 or 15
+minutes in the background, and on every cold start. It can only be turned on
+after a successful unlock, and is unavailable when the phone has no screen
+lock. Our own trips out of the app (photo picker, camera, Spotify/YouTube
+links, share sheet, Maps) never lock (`AppLockController.suspendWhile`).
+A call keeps running under the lock. Android: `MainActivity` is a
+`FlutterFragmentActivity`, themes are AppCompat, `androidx.appcompat` is a
+dependency and `USE_BIOMETRIC` is in the manifest.
+
 **Calls.** Voice and video over Agora. Unanswered calls stop ringing after
 45 seconds.
 
@@ -449,6 +541,16 @@ copied.
   calls). Ends with "most daring", not a winner.
 - *Tic-tac-toe* and *Connect Four*: live turn-based board games with win
   highlighting, a win tally and Play again.
+- *Snakes & Ladders*: the classic 100-square board (9 ladders, 10 snakes),
+  your avatars as tokens. Exact roll to 100 (overshoot bounces back), a 6
+  rolls again, three 6s forfeit the roll. One write per roll.
+- *Ludo for two*: opposite colours, Classic (4 tokens) or Quick (2 tokens,
+  leave the yard on 1 or 6). A 6 to leave the yard, captures send tokens
+  home except on the 8 safe squares, an exact roll into home, an extra roll
+  for a 6 or a capture, three 6s forfeit. A roll and a move are separate
+  writes; with no legal move the turn passes.
+- Dice are rolled on the phone whose turn it is; the rules check turns, not
+  randomness.
 
 **Reminders.** Each phone schedules its own local notifications (no push
 server needed): event reminders, the day before and the day of birthdays and

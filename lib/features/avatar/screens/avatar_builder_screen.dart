@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/glass.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/avatar/data/avatar_service.dart';
 import 'package:couple_app/features/avatar/models/avatar_config.dart';
@@ -130,7 +135,6 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final tabs = _tabs();
 
     return PopScope(
@@ -141,7 +145,12 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
       child: DefaultTabController(
         length: tabs.length,
         child: Scaffold(
+          extendBodyBehindAppBar: true,
+          backgroundColor: _stagePreset.colors(theme.brightness).first,
           appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            scrolledUnderElevation: 0,
             title: const Text('Your avatar'),
             actions: [
               Padding(
@@ -164,83 +173,166 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
               ),
             ],
           ),
-          body: Column(
+          body: Stack(
             children: [
-              Material(
-                color: scheme.surfaceContainerLow,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const SizedBox(width: 8),
-                        IconButton(
-                          tooltip: 'Undo',
-                          onPressed: _history.isEmpty ? null : _undo,
-                          icon: const Icon(Icons.undo),
-                        ),
-                        Expanded(
-                          child: Center(
-                            child: AvatarView(
-                              config: _config,
-                              expression: _expression,
-                              size: 132,
-                            ),
-                          ),
-                        ),
-                        IconButton.filledTonal(
-                          tooltip: 'Surprise me',
-                          onPressed: () => _apply(AvatarConfig.random()),
-                          icon: const Icon(Icons.casino_outlined),
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 40,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        children: [
-                          for (final entry in _expressionLabels.entries)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 3,
-                              ),
-                              child: ChoiceChip(
-                                label: Text(entry.value),
-                                selected: _expression == entry.key,
-                                visualDensity: VisualDensity.compact,
-                                onSelected: (_) =>
-                                    setState(() => _expression = entry.key),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    SwitchListTile(
-                      dense: true,
-                      title: const Text('Use as my profile picture'),
-                      value: _asPhoto,
-                      onChanged: (value) => setState(() => _asPhoto = value),
-                    ),
-                  ],
+              Positioned.fill(
+                child: AnimatedGradientBackground(
+                  preset: _stagePreset,
+                  duration: const Duration(seconds: 14),
                 ),
               ),
-              TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                tabs: [for (final tab in tabs) Tab(text: tab.label)],
+              Positioned.fill(
+                child: FloatingHearts(
+                  style: ParticleStyle.confetti,
+                  count: 10,
+                  opacity: .5,
+                  seed: 11,
+                ),
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [for (final tab in tabs) tab.build()],
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  children: [
+                    _stage(context),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                        child: _optionsPanel(context, tabs),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// The gradient behind the builder.
+  static const _stagePreset = GradientPreset.lavender;
+
+  /// The live preview, undo and "Surprise me", the expression chips and
+  /// the profile-picture switch, straight on the gradient.
+  Widget _stage(BuildContext context) {
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    return Column(
+      children: [
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Undo',
+              onPressed: _history.isEmpty ? null : _undo,
+              icon: const Icon(Icons.undo),
+            ),
+            Expanded(
+              child: Center(
+                child: Bobbing(
+                  amplitude: 3,
+                  duration: const Duration(milliseconds: 3600),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: dark ? .14 : .7),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: dark ? .25 : .95),
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _stagePreset
+                              .accent(theme.brightness)
+                              .withValues(alpha: .25),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: RepaintBoundary(
+                      child: AvatarView(
+                        config: _config,
+                        expression: _expression,
+                        size: 132,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            IconButton.filledTonal(
+              tooltip: 'Surprise me',
+              onPressed: () => _apply(AvatarConfig.random()),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withValues(
+                  alpha: dark ? .16 : .75,
+                ),
+              ),
+              icon: const Icon(Icons.casino_outlined),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              for (final entry in _expressionLabels.entries)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: ChoiceChip(
+                    label: Text(entry.value),
+                    selected: _expression == entry.key,
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: Colors.white.withValues(
+                      alpha: dark ? .08 : .5,
+                    ),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: dark ? .2 : .9),
+                    ),
+                    onSelected: (_) => setState(() => _expression = entry.key),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        SwitchListTile(
+          dense: true,
+          title: const Text('Use as my profile picture'),
+          value: _asPhoto,
+          onChanged: (value) => setState(() => _asPhoto = value),
+        ),
+      ],
+    );
+  }
+
+  /// The part tabs and their options, on a frosted panel.
+  Widget _optionsPanel(BuildContext context, List<_Category> tabs) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return GlassPanel(
+      dark: dark,
+      radius: 28,
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          const SizedBox(height: 4),
+          TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            dividerColor: Colors.transparent,
+            tabs: [for (final tab in tabs) Tab(text: tab.label)],
+          ),
+          Expanded(
+            child: TabBarView(children: [for (final tab in tabs) tab.build()]),
+          ),
+        ],
       ),
     );
   }

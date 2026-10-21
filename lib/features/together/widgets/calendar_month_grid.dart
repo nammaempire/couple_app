@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/together/models/calendar_event.dart';
+import 'package:couple_app/features/together/widgets/calendar_event_look.dart';
 
 /// A month of day cells, with coloured dots on days that have events.
 class CalendarMonthGrid extends StatelessWidget {
@@ -101,11 +103,18 @@ class CalendarMonthGrid extends StatelessWidget {
       return const SizedBox(height: 48);
     }
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final day = DateTime(month.year, month.month, dayNumber);
     final isSelected = day == selected;
     final isToday = day == today;
     final types = marks[dayNumber] ?? const <EventType>[];
+
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    final accent = GradientPreset.blush.accent(b);
+    final selectedGradient = dark
+        ? [const Color(0xFFFFB3C8), const Color(0xFFE5A6FF)]
+        : [const Color(0xFFD81B60), const Color(0xFF8E3FD0)];
+    final selectedText = dark ? const Color(0xFF3B1424) : Colors.white;
 
     return Semantics(
       button: true,
@@ -121,39 +130,61 @@ class CalendarMonthGrid extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 32,
-                height: 32,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                width: 34,
+                height: 34,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: isSelected ? scheme.primary : null,
+                  gradient: isSelected
+                      ? LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: selectedGradient,
+                        )
+                      : null,
+                  color: !isSelected && isToday
+                      ? Colors.white.withValues(alpha: dark ? .12 : .6)
+                      : null,
                   border: isToday && !isSelected
-                      ? Border.all(color: scheme.primary, width: 1.5)
+                      ? Border.all(color: accent, width: 1.6)
+                      : null,
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: selectedGradient.first.withValues(
+                              alpha: dark ? .25 : .4,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
                       : null,
                 ),
                 child: Text(
                   '$dayNumber',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isSelected ? scheme.onPrimary : null,
+                    color: isSelected ? selectedText : null,
                     fontWeight: isToday || isSelected ? FontWeight.w700 : null,
                   ),
                 ),
               ),
               const SizedBox(height: 3),
               SizedBox(
-                height: 5,
+                height: 4,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (final t in types.take(3))
                       Container(
-                        width: 5,
-                        height: 5,
+                        width: 9,
+                        height: 4,
                         margin: const EdgeInsets.symmetric(horizontal: 1),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _dotColor(t, scheme),
+                          borderRadius: BorderRadius.circular(2),
+                          gradient: LinearGradient(colors: t.dotColors(b)),
                         ),
                       ),
                   ],
@@ -165,13 +196,4 @@ class CalendarMonthGrid extends StatelessWidget {
       ),
     );
   }
-
-  static Color _dotColor(EventType t, ColorScheme scheme) => switch (t) {
-    EventType.birthday => const Color(0xFFE8945C),
-    EventType.anniversary => scheme.primary,
-    EventType.trip => const Color(0xFF5C9BE8),
-    EventType.dateNight => const Color(0xFFC05CE8),
-    EventType.meetup => const Color(0xFF3BBF6B),
-    EventType.custom => scheme.outline,
-  };
 }

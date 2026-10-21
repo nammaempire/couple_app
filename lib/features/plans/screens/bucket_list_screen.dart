@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/plans/data/bucket_list_service.dart';
@@ -18,6 +19,7 @@ import 'package:couple_app/features/plans/widgets/bucket_item_tile.dart';
 import 'package:couple_app/features/plans/widgets/bucket_progress_header.dart';
 import 'package:couple_app/features/plans/widgets/bucket_quick_add_sheet.dart';
 import 'package:couple_app/features/plans/widgets/bucket_section_header.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// The shared bucket list: progress, category filters, and things to do
 /// someday, ticked off together.
@@ -139,12 +141,13 @@ class _BucketListScreenState extends ConsumerState<BucketListScreen> {
       );
     }
     if (all.isEmpty) {
-      return EmptyState(
-        icon: Icons.auto_awesome_outlined,
+      return GradientEmptyState(
+        emoji: '🌠',
+        preset: GradientPreset.sunny,
+        scrollable: true,
         text:
             'No dreams on the list yet.\n'
             'Add the things you and $partnerName want to do someday.',
-        padding: const EdgeInsets.all(32),
       );
     }
 
@@ -181,10 +184,12 @@ class _BucketListScreenState extends ConsumerState<BucketListScreen> {
         if (shown.isEmpty)
           SliverFillRemaining(
             hasScrollBody: false,
-            child: EmptyState(
-              icon: _filter?.icon ?? Icons.auto_awesome_outlined,
+            child: GradientEmptyState(
+              emoji: _filter?.emoji ?? '✨',
+              preset: _filter == null
+                  ? GradientPreset.sunny
+                  : BucketLook.presetFor(_filter!),
               text: 'Nothing in ${_filter?.label ?? 'this list'} yet.',
-              padding: const EdgeInsets.all(32),
             ),
           ),
         if (toDo.isNotEmpty) ...[
@@ -193,7 +198,8 @@ class _BucketListScreenState extends ConsumerState<BucketListScreen> {
           ),
           SliverList.builder(
             itemCount: toDo.length,
-            itemBuilder: (context, i) => tile(toDo[i]),
+            itemBuilder: (context, i) =>
+                stagger(i, tile(toDo[i]), key: ValueKey(toDo[i].id)),
           ),
         ],
         if (done.isNotEmpty) ...[

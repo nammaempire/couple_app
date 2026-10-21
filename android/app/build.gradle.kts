@@ -80,4 +80,8 @@ flutter {
 dependencies {
     // Java 8+ time APIs on older Android, for scheduled reminders.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // AppCompat themes (styles.xml) for the app lock's biometric prompt.
+    // local_auth only brings it in as a runtime dependency of
+    // androidx.biometric, so it is declared here for the theme resources.
+    implementation("androidx.appcompat:appcompat:1.8.0")
 }

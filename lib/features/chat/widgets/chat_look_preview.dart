@@ -128,19 +128,29 @@ class _PreviewHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return ColoredBox(
-      color: theme.appBarTheme.backgroundColor ?? scheme.surface,
+    final palette = ChatPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: ChatPalette.diagonal(palette.headerGradient),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: scheme.primaryContainer,
-              child: Text(
-                name.isEmpty ? '♥' : name.characters.first.toUpperCase(),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.onPrimaryContainer,
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: ChatPalette.diagonal(palette.accentGradient),
+              ),
+              child: CircleAvatar(
+                radius: 13,
+                backgroundColor: scheme.primaryContainer,
+                child: Text(
+                  name.isEmpty ? '♥' : name.characters.first.toUpperCase(),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
               ),
             ),
@@ -152,16 +162,13 @@ class _PreviewHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: scheme.onSurface,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
-            Icon(Icons.call_outlined, size: 18, color: scheme.onSurfaceVariant),
+            Icon(Icons.call_outlined, size: 18, color: scheme.onSurface),
             const SizedBox(width: 14),
-            Icon(
-              Icons.videocam_outlined,
-              size: 18,
-              color: scheme.onSurfaceVariant,
-            ),
+            Icon(Icons.videocam_outlined, size: 18, color: scheme.onSurface),
           ],
         ),
       ),

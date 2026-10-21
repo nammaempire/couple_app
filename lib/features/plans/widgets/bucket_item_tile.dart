@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/bucket_item.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// One bucket-list item with a round tick button.
 class BucketItemTile extends StatelessWidget {
@@ -61,44 +63,78 @@ class BucketItemTile extends StatelessWidget {
       }
     }
 
-    return ListTile(
+    final preset = BucketLook.presetFor(item.category);
+    return TintedCard(
+      preset: preset,
+      muted: item.done,
       onTap: onTap,
-      contentPadding: const EdgeInsets.fromLTRB(8, 2, 16, 2),
-      leading: _TickButton(
-        done: item.done,
-        celebrate: celebrate,
-        onPressed: onToggle,
-      ),
-      title: Text(
-        item.title,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: item.done
-            ? TextStyle(
-                color: scheme.onSurfaceVariant,
-                decoration: TextDecoration.lineThrough,
-                decorationColor: scheme.onSurfaceVariant.withValues(alpha: 0.5),
-              )
-            : null,
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.fromLTRB(4, 6, 14, 6),
+      child: Row(
         children: [
-          Text.rich(TextSpan(children: details)),
-          if (item.notes.isNotEmpty && !item.done)
-            Text(
-              item.notes,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+          _TickButton(
+            done: item.done,
+            celebrate: celebrate,
+            onPressed: onToggle,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: item.done ? null : FontWeight.w600,
+                      color: item.done ? scheme.onSurfaceVariant : null,
+                      decoration: item.done ? TextDecoration.lineThrough : null,
+                      decorationColor: scheme.onSurfaceVariant.withValues(
+                        alpha: 0.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text.rich(
+                    TextSpan(children: details),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (item.notes.isNotEmpty && !item.done)
+                    Text(
+                      item.notes,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
   }
+}
+
+/// The gradient each bucket-list category wears.
+abstract final class BucketLook {
+  static GradientPreset presetFor(BucketCategory c) => switch (c) {
+    BucketCategory.travel => GradientPreset.ocean,
+    BucketCategory.adventure => GradientPreset.mint,
+    BucketCategory.food => GradientPreset.sunset,
+    BucketCategory.learn => GradientPreset.lavender,
+    BucketCategory.home => GradientPreset.peach,
+    BucketCategory.romance => GradientPreset.blush,
+    BucketCategory.other => GradientPreset.sunny,
+  };
 }
 
 class _TickButton extends StatefulWidget {
@@ -190,9 +226,25 @@ class _TickButtonState extends State<_TickButton>
                   height: 28,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: widget.done ? scheme.primary : Colors.transparent,
+                    gradient: widget.done
+                        ? LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              scheme.primary,
+                              Color.lerp(
+                                scheme.primary,
+                                const Color(0xFF8E3FD0),
+                                .55,
+                              )!,
+                            ],
+                          )
+                        : null,
+                    color: widget.done
+                        ? null
+                        : Colors.white.withValues(alpha: .35),
                     border: Border.all(
-                      color: widget.done ? scheme.primary : scheme.outline,
+                      color: widget.done ? Colors.transparent : scheme.outline,
                       width: 2,
                     ),
                   ),

@@ -56,11 +56,26 @@ dependencies:
   # Opening wishlist links and places in Maps
   url_launcher: ^6.3.2
 
+  # Music: song details from Spotify/YouTube links, in-app YouTube playback
+  http: ^1.6.0
+  youtube_player_iframe: ^6.0.2
+
+  # App lock: fingerprint / face / phone PIN, and its per-device setting.
+  # Pinned to releases at least two weeks old; the plugin's newest Android
+  # and iOS implementations were days old when this was added.
+  local_auth: ^3.0.2
+  local_auth_android: 2.2.0
+  local_auth_darwin: 2.0.4
+  shared_preferences: 2.5.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^6.0.0
+
+  # In-memory Firestore for MusicService tests
+  fake_cloud_firestore: ^3.1.0
 
 flutter:
   uses-material-design: true

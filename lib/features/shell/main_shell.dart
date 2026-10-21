@@ -15,6 +15,7 @@ import 'package:couple_app/features/home/models/nudge.dart';
 import 'package:couple_app/features/home/providers/home_providers.dart';
 import 'package:couple_app/features/home/screens/home_screen.dart';
 import 'package:couple_app/features/memories/screens/memories_screen.dart';
+import 'package:couple_app/features/music/widgets/listening_banner.dart';
 import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
 import 'package:couple_app/features/play/game_catalog.dart';
 import 'package:couple_app/features/play/models/game.dart';
@@ -240,6 +241,22 @@ class _MainShellState extends ConsumerState<MainShell> {
     );
   }
 
+  List<Widget> get _tabs => [
+    HomeScreen(
+      onOpenChat: () => setState(() => _tabIndex = _chatTab),
+      onOpenMemories: () => setState(() => _tabIndex = _memoriesTab),
+      onOpenCalendar: () {
+        setState(() => _tabIndex = _togetherTab);
+        _togetherKey.currentState?.showTab(TogetherScreenState.calendarTab);
+      },
+    ),
+    ChatScreen(isActive: _tabIndex == _chatTab),
+    const MemoriesScreen(),
+    TogetherScreen(key: _togetherKey),
+    const PlayHubScreen(),
+    const UsScreen(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final couple = ref.watch(coupleProvider).value;
@@ -251,63 +268,61 @@ class _MainShellState extends ConsumerState<MainShell> {
     return Scaffold(
       body: IndexedStack(
         index: _tabIndex,
+        // IndexedStack keeps hidden tabs' tickers running; pause them so
+        // looping decorations (gradients, hearts) only animate on screen.
         children: [
-          HomeScreen(
-            onOpenChat: () => setState(() => _tabIndex = _chatTab),
-            onOpenMemories: () => setState(() => _tabIndex = _memoriesTab),
-            onOpenCalendar: () {
-              setState(() => _tabIndex = _togetherTab);
-              _togetherKey.currentState?.showTab(0);
-            },
-          ),
-          ChatScreen(isActive: _tabIndex == _chatTab),
-          const MemoriesScreen(),
-          TogetherScreen(key: _togetherKey),
-          const PlayHubScreen(),
-          const UsScreen(),
+          for (final (i, tab) in _tabs.indexed)
+            TickerMode(enabled: i == _tabIndex, child: tab),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tabIndex,
-        onDestinationSelected: (index) => setState(() => _tabIndex = index),
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
-            label: 'Chat',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.photo_album_outlined),
-            selectedIcon: Icon(Icons.photo_album),
-            label: 'Memories',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Together',
-          ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: waitingOnMe > 0,
-              label: Text('$waitingOnMe'),
-              child: const Icon(Icons.sports_esports_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: waitingOnMe > 0,
-              label: Text('$waitingOnMe'),
-              child: const Icon(Icons.sports_esports),
-            ),
-            label: 'Play',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Us',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Listening together: on every tab while a session is live.
+          const ListeningBanner(),
+          NavigationBar(
+            selectedIndex: _tabIndex,
+            onDestinationSelected: (index) => setState(() => _tabIndex = index),
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.chat_bubble_outline),
+                selectedIcon: Icon(Icons.chat_bubble),
+                label: 'Chat',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.photo_album_outlined),
+                selectedIcon: Icon(Icons.photo_album),
+                label: 'Memories',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.calendar_month_outlined),
+                selectedIcon: Icon(Icons.calendar_month),
+                label: 'Together',
+              ),
+              NavigationDestination(
+                icon: Badge(
+                  isLabelVisible: waitingOnMe > 0,
+                  label: Text('$waitingOnMe'),
+                  child: const Icon(Icons.sports_esports_outlined),
+                ),
+                selectedIcon: Badge(
+                  isLabelVisible: waitingOnMe > 0,
+                  label: Text('$waitingOnMe'),
+                  child: const Icon(Icons.sports_esports),
+                ),
+                label: 'Play',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.favorite_outline),
+                selectedIcon: Icon(Icons.favorite),
+                label: 'Us',
+              ),
+            ],
           ),
         ],
       ),

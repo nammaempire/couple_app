@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+
 import 'package:couple_app/features/play/know_me/know_me_question.dart';
+import 'package:couple_app/features/play/widgets/play_look.dart';
 
 /// Steps through the quiz one question at a time (with back / next), then
 /// shows a review of every pick before [onSubmit].
@@ -208,13 +211,16 @@ class _QuestionPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           for (var i = 0; i < question.options.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _OptionTile(
-                letter: String.fromCharCode(65 + i),
-                text: question.options[i],
-                selected: picked == i,
-                onTap: onPick == null ? null : () => onPick!(i),
+            EntranceAnimation(
+              index: i,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _OptionTile(
+                  letter: String.fromCharCode(65 + i),
+                  text: question.options[i],
+                  selected: picked == i,
+                  onTap: onPick == null ? null : () => onPick!(i),
+                ),
               ),
             ),
         ],
@@ -239,7 +245,8 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final fg = selected ? scheme.onPrimaryContainer : scheme.onSurface;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final fg = scheme.onSurface;
     return Semantics(
       selected: selected,
       button: true,
@@ -253,13 +260,25 @@ class _OptionTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: selected
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(16),
+                  ? (dark
+                        ? scheme.surface.withValues(alpha: .85)
+                        : Colors.white.withValues(alpha: .95))
+                  : Colors.white.withValues(alpha: dark ? .08 : .5),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: selected ? scheme.primary : scheme.outlineVariant,
+                color: selected
+                    ? scheme.primary
+                    : Colors.white.withValues(alpha: dark ? .16 : .85),
                 width: selected ? 2 : 1,
               ),
+              boxShadow: [
+                if (selected)
+                  BoxShadow(
+                    color: scheme.primary.withValues(alpha: .2),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
             ),
             child: Row(
               children: [
@@ -272,7 +291,7 @@ class _OptionTile extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: selected
                         ? scheme.primary
-                        : scheme.surfaceContainerHighest,
+                        : Colors.white.withValues(alpha: dark ? .12 : .85),
                   ),
                   child: Text(
                     letter,
@@ -349,6 +368,12 @@ class _Review extends StatelessWidget {
         final pick = picks[index];
         return Card(
           margin: EdgeInsets.zero,
+          elevation: 0,
+          color: PlayLook.panel(context, light: .7),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: ListTile(
             onTap: onEdit == null ? null : () => onEdit!(index),
             title: Text(q.textFor(aboutName: aboutName)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
 
 /// Scans a partner's invite QR code and pops with the 6-character code.
@@ -73,12 +74,17 @@ class _QrScanScreenState extends State<QrScanScreen> {
             left: 24,
             right: 24,
             bottom: 48,
-            child: Text(
-              _hint ??
-                  'Point your camera at the QR code on your partner\'s '
-                      'invite screen.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
+            child: GlassPanel(
+              dark: true,
+              radius: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Text(
+                _hint ??
+                    'Point your camera at the QR code on your partner\'s '
+                        'invite screen.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 15),
+              ),
             ),
           ),
         ],
@@ -98,8 +104,15 @@ class _Viewfinder extends StatelessWidget {
           width: 240,
           height: 240,
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.white, width: 3),
-            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFFFB0DA), width: 3),
+            borderRadius: BorderRadius.circular(32),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF9EBB).withValues(alpha: .45),
+                blurRadius: 24,
+                spreadRadius: 2,
+              ),
+            ],
           ),
         ),
       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/plans/models/date_plan.dart';
+import 'package:couple_app/features/plans/widgets/date_plan_card.dart';
 
 /// What to do with the surprise pick.
 enum DatePlanSurpriseChoice { plan, again }
@@ -28,7 +29,22 @@ class DatePlanSurpriseDialog extends StatelessWidget {
         curve: Curves.elasticOut,
         builder: (context, scale, child) =>
             Transform.scale(scale: scale, child: child),
-        child: Text(plan.vibe.emoji, style: const TextStyle(fontSize: 44)),
+        child: Container(
+          width: 84,
+          height: 84,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: DatePlanLook.presetFor(
+                plan.vibe,
+              ).colors(theme.brightness),
+            ),
+          ),
+          child: Text(plan.vibe.emoji, style: const TextStyle(fontSize: 42)),
+        ),
       ),
       title: Text(
         plan.title.isEmpty ? 'Untitled date' : plan.title,
@@ -69,7 +85,10 @@ class DatePlanSurpriseDialog extends StatelessWidget {
           ),
         FilledButton(
           onPressed: () => Navigator.pop(context, DatePlanSurpriseChoice.plan),
-          style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            shape: const StadiumBorder(),
+          ),
           child: const Text('Plan it'),
         ),
       ],

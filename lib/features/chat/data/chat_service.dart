@@ -29,6 +29,27 @@ class ChatService {
   /// Matches the Storage rule for chat videos.
   static const maxVideoBytes = 100 * 1024 * 1024;
 
+  /// Deletes per batch when clearing the chat for both; under Firestore's
+  /// 500-write batch limit.
+  static const clearBatchSize = 400;
+
+  /// The part of a newest-first page of messages that "clear chat" has not
+  /// hidden, and whether the page reached the clear point. Once it has,
+  /// everything older is hidden too, so there is nothing more to page in.
+  ///
+  /// This is done on the device rather than with a `sentAt >` query filter:
+  /// Firestore leaves a message whose server time is still pending out of
+  /// range filters, so my own just-sent (or offline) messages would vanish
+  /// until the server confirmed them.
+  static ({List<Message> visible, bool reachedClear}) visiblePart(
+    List<Message> page,
+    DateTime? clearedAt,
+  ) {
+    if (clearedAt == null) return (visible: page, reachedClear: false);
+    final visible = page.where((m) => !m.isClearedBy(clearedAt)).toList();
+    return (visible: visible, reachedClear: visible.length < page.length);
+  }
+
   CollectionReference<Map<String, dynamic>> _messages(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('messages');
 
@@ -249,19 +270,27 @@ class ChatService {
 
   /// Marks the partner's unread messages as seen. Two equality filters
   /// need no composite index.
+  ///
+  /// Messages hidden by "clear chat for me" ([clearedAt]) were never read,
+  /// so they are left alone; filtering them here rather than in the query
+  /// avoids a composite index.
   Future<void> markSeen({
     required String coupleId,
     required String partnerId,
+    DateTime? clearedAt,
   }) async {
     final unread = await _messages(coupleId)
         .where('senderId', isEqualTo: partnerId)
         .where('seen', isEqualTo: false)
         .limit(200)
         .get();
-    if (unread.docs.isEmpty) return;
+    final docs = unread.docs
+        .where((doc) => !Message.fromDoc(doc).isClearedBy(clearedAt))
+        .toList();
+    if (docs.isEmpty) return;
 
     final batch = _db.batch();
-    for (final doc in unread.docs) {
+    for (final doc in docs) {
       batch.update(doc.reference, {'seen': true});
     }
     await batch.commit();
@@ -312,22 +341,42 @@ class ChatService {
 
   /// Recent messages for searching. Firestore has no full-text search, so
   /// matching happens on the device over the latest [limit] messages.
+  ///
+  /// Only messages sent after [clearedAt] are fetched. The range filter is
+  /// on the field the query is ordered by, so it needs no extra index.
   Future<List<Message>> fetchRecent(
     String coupleId, {
     int limit = searchWindow,
+    DateTime? clearedAt,
   }) async {
-    final snap = await _messages(
-      coupleId,
-    ).orderBy('sentAt', descending: true).limit(limit).get();
+    Query<Map<String, dynamic>> query = _messages(coupleId);
+    if (clearedAt != null) {
+      query = query.where(
+        'sentAt',
+        isGreaterThan: Timestamp.fromDate(clearedAt),
+      );
+    }
+    final snap = await query
+        .orderBy('sentAt', descending: true)
+        .limit(limit)
+        .get();
     return snap.docs.map(Message.fromDoc).toList();
   }
 
-  /// Every photo and video in the conversation, newest first.
-  Future<List<Message>> fetchMedia(String coupleId) async {
+  /// Every photo and video in the conversation sent after [clearedAt],
+  /// newest first. The cut-off is applied here: with the `type` filter it
+  /// would need a composite index.
+  Future<List<Message>> fetchMedia(
+    String coupleId, {
+    DateTime? clearedAt,
+  }) async {
     final snap = await _messages(
       coupleId,
     ).where('type', whereIn: ['image', 'video']).limit(1000).get();
-    final list = snap.docs.map(Message.fromDoc).toList();
+    final list = snap.docs
+        .map(Message.fromDoc)
+        .where((m) => !m.isClearedBy(clearedAt))
+        .toList();
     list.sort(
       (a, b) => (b.sentAt ?? DateTime(0)).compareTo(a.sentAt ?? DateTime(0)),
     );
@@ -339,14 +388,170 @@ class ChatService {
     required Message message,
   }) async {
     await _messages(coupleId).doc(message.id).delete();
+    await _deleteMedia(message);
+  }
+
+  /// Deletes a message's files: the photo, or the video and its thumbnail,
+  /// or the voice recording.
+  Future<void> _deleteMedia(Message message) async {
     for (final url in [message.imageUrl, message.mediaUrl]) {
       if (url == null) continue;
       try {
         await _storage.deleteByUrl(url);
       } catch (_) {
-        // The document is gone; a leftover file is not worth failing over.
+        // Already gone, or a leftover file not worth failing over.
       }
     }
+  }
+
+  // ---- Clearing the chat ---------------------------------------------------
+
+  /// "Clear chat for me": hides every message up to now on [uid]'s account
+  /// only. The partner keeps their history, and the files stay in Storage
+  /// because they can still see them.
+  Future<void> clearForMe({required String uid}) {
+    return _db.collection('users').doc(uid).update({
+      'chatClearedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// "Clear chat for both": permanently deletes the conversation, with its
+  /// photos, videos and voice messages, then posts a system line.
+  ///
+  /// 1. Stamps the couple with `chatClearedAt` (server time) and
+  ///    `chatClearedBy`, and drops the last-message preview. The rules then
+  ///    let either partner delete anything sent up to that moment, and both
+  ///    apps hide it straight away.
+  /// 2. Deletes those messages in batches of [clearBatchSize], each
+  ///    message's files first, so a retry can still find what to delete.
+  /// 3. Posts a [MessageType.chatCleared] line from [senderId].
+  ///
+  /// [onProgress] gets the running count of deleted messages. If anything
+  /// fails, running it again finishes the job: it re-stamps the couple and
+  /// deletes everything up to the new time.
+  Future<void> clearForBoth({
+    required String coupleId,
+    required String senderId,
+    required String senderName,
+    void Function(int deleted)? onProgress,
+  }) async {
+    final coupleRef = _db.collection('couples').doc(coupleId);
+    await coupleRef.update({
+      'chatClearedAt': FieldValue.serverTimestamp(),
+      'chatClearedBy': senderId,
+      'lastMessagePreview': FieldValue.delete(),
+      'lastMessageAt': FieldValue.delete(),
+    });
+
+    // Read the stamp back: the delete rule compares against the stored
+    // server time, not this phone's clock.
+    final stamped = (await coupleRef.get()).data()?['chatClearedAt'];
+    if (stamped is! Timestamp) {
+      throw ChatException('Could not clear the chat. Try again.');
+    }
+
+    var deleted = 0;
+    onProgress?.call(deleted);
+    while (true) {
+      final page = await _messages(coupleId)
+          .where('sentAt', isLessThanOrEqualTo: stamped)
+          .limit(clearBatchSize)
+          .get();
+      if (page.docs.isEmpty) break;
+
+      final messages = page.docs.map(Message.fromDoc).toList();
+      // A few files at a time, rather than one by one or all at once.
+      for (var i = 0; i < messages.length; i += 8) {
+        await Future.wait(messages.skip(i).take(8).map(_deleteMedia));
+      }
+
+      final batch = _db.batch();
+      for (final doc in page.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      deleted += page.docs.length;
+      onProgress?.call(deleted);
+    }
+
+    await _sendSystem(
+      coupleId,
+      senderId: senderId,
+      type: MessageType.chatCleared,
+      text: '🧹 $senderName cleared the chat',
+    );
+  }
+
+  // ---- Screenshots ---------------------------------------------------------
+
+  /// Tells the partner that [senderId] took a screenshot of [subject].
+  Future<void> sendScreenshotAlert({
+    required String coupleId,
+    required String senderId,
+    required String senderName,
+    ScreenshotSubject subject = ScreenshotSubject.chat,
+  }) {
+    return _sendSystem(
+      coupleId,
+      senderId: senderId,
+      type: MessageType.screenshot,
+      text: switch (subject) {
+        ScreenshotSubject.chat => '📸 $senderName took a screenshot',
+        ScreenshotSubject.photo =>
+          '📸 $senderName took a screenshot of a photo',
+        ScreenshotSubject.video =>
+          '📸 $senderName took a screenshot of a video',
+      },
+      screenshotOf: subject,
+    );
+  }
+
+  /// Turns the shared "block screenshots of our chat" switch on or off,
+  /// and posts a line saying who did.
+  Future<void> setScreenshotBlocking({
+    required String coupleId,
+    required String senderId,
+    required String senderName,
+    required bool blocked,
+  }) async {
+    await _db.collection('couples').doc(coupleId).update({
+      'blockScreenshots': blocked,
+    });
+    await _sendSystem(
+      coupleId,
+      senderId: senderId,
+      type: MessageType.screenshotBlock,
+      text:
+          '🔒 $senderName turned ${blocked ? 'on' : 'off'} screenshot '
+          'blocking',
+      screenshotsBlocked: blocked,
+    );
+  }
+
+  /// Writes a system line. It is marked seen so it never counts as unread.
+  Future<void> _sendSystem(
+    String coupleId, {
+    required String senderId,
+    required MessageType type,
+    required String text,
+    ScreenshotSubject screenshotOf = ScreenshotSubject.chat,
+    bool screenshotsBlocked = false,
+  }) {
+    final chars = text.characters;
+    return _send(
+      coupleId,
+      Message(
+        id: '',
+        senderId: senderId,
+        type: type,
+        text: chars.length <= Message.maxSystemTextLength
+            ? text
+            : chars.take(Message.maxSystemTextLength).toString(),
+        seen: true,
+        screenshotOf: screenshotOf,
+        screenshotsBlocked: screenshotsBlocked,
+      ),
+    );
   }
 
   Future<void> _touchCouple(String coupleId, {required String preview}) {

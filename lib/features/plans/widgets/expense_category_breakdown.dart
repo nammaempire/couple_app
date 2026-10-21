@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/expense_math.dart';
+import 'package:couple_app/features/plans/widgets/expense_tile.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// "This month by category": a simple horizontal bar per category.
 class ExpenseCategoryBreakdown extends StatelessWidget {
@@ -21,19 +24,20 @@ class ExpenseCategoryBreakdown extends StatelessWidget {
     final grand = totals.fold<int>(0, (sum, t) => sum + t.totalMinor);
     final largest = totals.isEmpty ? 0 : totals.first.totalMinor;
 
-    return Container(
+    return TintedCard(
+      preset: GradientPreset.ocean,
+      strength: .5,
+      edge: true,
+      radius: 24,
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
+              const Text('📊', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'This month by category',
@@ -129,13 +133,15 @@ class _Bar extends StatelessWidget {
               builder: (context, constraints) {
                 // Always show a sliver so tiny categories stay visible.
                 final width = (constraints.maxWidth * fraction).clamp(
-                  6.0,
+                  8.0,
                   constraints.maxWidth,
                 );
+                final preset = ExpenseLook.presetFor(total.category);
+                final accent = preset.accent(theme.brightness);
                 return Container(
                   height: 8,
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
+                    color: scheme.surface.withValues(alpha: .6),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   alignment: Alignment.centerLeft,
@@ -144,8 +150,10 @@ class _Bar extends StatelessWidget {
                     curve: Curves.easeOutCubic,
                     width: width,
                     decoration: BoxDecoration(
-                      color: scheme.primary,
                       borderRadius: BorderRadius.circular(4),
+                      gradient: LinearGradient(
+                        colors: [accent.withValues(alpha: .55), accent],
+                      ),
                     ),
                   ),
                 );

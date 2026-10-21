@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/plans/models/place.dart';
+import 'package:couple_app/features/plans/widgets/place_card.dart';
 import 'package:couple_app/features/plans/widgets/place_rating_stars.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// What the place details sheet asks the screen to do.
 enum PlaceAction { openMaps, planDate, markBeen, markWantToGo, edit, delete }
@@ -40,6 +42,10 @@ class PlaceDetailsSheet extends StatelessWidget {
       ),
     );
 
+    final preset = PlaceLook.presetFor(place.category);
+    final fg = preset.foreground(theme.brightness);
+    final fgMuted = preset.foregroundMuted(theme.brightness);
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -47,27 +53,34 @@ class PlaceDetailsSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${place.category.emoji}  '
-                    '${place.name.isEmpty ? 'Unnamed place' : place.name}',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+            SheetGradientHeader(
+              preset: PlaceLook.presetFor(place.category),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${place.category.emoji}  '
+                          '${place.name.isEmpty ? 'Unnamed place' : place.name}',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: fg,
+                          ),
+                        ),
+                      ),
+                      if (place.favourite)
+                        Icon(Icons.favorite, color: scheme.primary, size: 20),
+                    ],
                   ),
-                ),
-                if (place.favourite)
-                  Icon(Icons.favorite, color: scheme.primary, size: 20),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${place.category.label} · ${place.status.label} · '
-              'added by $addedBy',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+                  const SizedBox(height: 4),
+                  Text(
+                    '${place.category.label} · ${place.status.label} · '
+                    'added by $addedBy',
+                    style: theme.textTheme.bodySmall?.copyWith(color: fgMuted),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

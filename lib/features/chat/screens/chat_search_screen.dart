@@ -7,6 +7,7 @@ import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/chat/data/chat_service.dart';
 import 'package:couple_app/features/chat/models/message.dart';
 import 'package:couple_app/features/chat/providers/chat_providers.dart';
+import 'package:couple_app/features/chat/widgets/chat_privacy_scope.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 
 /// Searches the conversation's text messages. Pops with the id of the
@@ -14,7 +15,7 @@ import 'package:couple_app/features/couple/providers/couple_providers.dart';
 ///
 /// Firestore has no full-text search, so the most recent
 /// [ChatService.searchWindow] messages are loaded once and matched on the
-/// device.
+/// device. Messages hidden by "clear chat" and system lines are left out.
 class ChatSearchScreen extends ConsumerStatefulWidget {
   const ChatSearchScreen({super.key});
 
@@ -25,9 +26,16 @@ class ChatSearchScreen extends ConsumerStatefulWidget {
 class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   final _query = TextEditingController();
   late final String _myUid;
+
+  /// Re-checked on the device too, in case the chat is cleared while the
+  /// search is open.
+  DateTime? get _clearedAt => ref.read(chatClearedAtProvider);
   late final Future<List<Message>> _messages = ref
       .read(chatServiceProvider)
-      .fetchRecent(ref.read(currentCoupleIdProvider));
+      .fetchRecent(
+        ref.read(currentCoupleIdProvider),
+        clearedAt: ref.read(chatClearedAtProvider),
+      );
 
   @override
   void initState() {
@@ -49,6 +57,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
         .where(
           (m) =>
               (m.type == MessageType.text || m.type == MessageType.sticker) &&
+              !m.isClearedBy(_clearedAt) &&
               m.text.toLowerCase().contains(q),
         )
         .toList();
@@ -58,7 +67,12 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final partnerName = ref.watch(partnerNameProvider);
+    ref.watch(chatClearedAtProvider);
 
+    return ChatPrivacyScope(child: _buildScaffold(theme, partnerName));
+  }
+
+  Widget _buildScaffold(ThemeData theme, String partnerName) {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 0,

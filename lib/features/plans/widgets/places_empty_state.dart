@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/place.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Friendly empty state for a places tab, or for filters with no match.
 class PlacesEmptyState extends StatelessWidget {
@@ -21,72 +23,56 @@ class PlacesEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (icon, title, hint) = filtering
+    final (emoji, preset, title, hint) = filtering
         ? (
-            Icons.filter_alt_off_outlined,
+            '🔍',
+            GradientPreset.lavender,
             'Nothing matches',
             'Try another category or show all places.',
           )
         : switch (status) {
             PlaceStatus.wantToGo => (
-              Icons.explore_outlined,
+              '🧭',
+              GradientPreset.mint,
               'Where to next?',
               'Save the cafés, trails and getaways you and $partnerName keep '
                   'talking about.',
             ),
             PlaceStatus.been => (
-              Icons.map_outlined,
+              '🗺️',
+              GradientPreset.gold,
               'Your map of us starts here',
               'When you visit a place, mark it as been to keep a rating and '
                   'a note.',
             ),
           };
 
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: .6),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 40, color: theme.colorScheme.primary),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            hint,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 20),
-          if (filtering)
-            OutlinedButton(
+    final pill = FilledButton.styleFrom(
+      minimumSize: const Size(0, 48),
+      shape: const StadiumBorder(),
+    );
+    return GradientEmptyState(
+      emoji: emoji,
+      preset: preset,
+      title: title,
+      text: hint,
+      action: filtering
+          ? OutlinedButton(
               onPressed: onClearFilters,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 48),
+                shape: const StadiumBorder(),
+              ),
               child: const Text('Show all places'),
             )
-          else if (status == PlaceStatus.wantToGo)
-            FilledButton.tonalIcon(
+          : status == PlaceStatus.wantToGo
+          ? FilledButton.icon(
               onPressed: onAdd,
+              style: pill,
               icon: const Icon(Icons.add_location_alt_outlined),
               label: const Text('Add a place'),
-            ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }

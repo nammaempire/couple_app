@@ -117,7 +117,15 @@ service cloud.firestore {
           !('memberIds' in changedKeys()) ||
           request.resource.data.memberIds ==
             resource.data.memberIds.removeAll([request.auth.uid])
-        )) ||
+        ) &&
+        // Clearing the chat for both is stamped with the server's time.
+        (!('chatClearedAt' in changedKeys()) ||
+         request.resource.data.chatClearedAt == request.time) &&
+        (!('chatClearedBy' in changedKeys()) ||
+         request.resource.data.chatClearedBy == request.auth.uid) &&
+        // A shared "no screenshots in our chat" switch.
+        (!('blockScreenshots' in changedKeys()) ||
+         request.resource.data.blockScreenshots is bool)) ||
 
         // Joining: a non-member adds only themselves to a couple of one,
         // and only by consuming this couple's invite in the same transaction.
@@ -152,16 +160,41 @@ service cloud.firestore {
           );
         }
 
+        // System lines (chat cleared, screenshot taken, screenshot blocking
+        // switched) are short text only: no media, replies or reactions.
+        function systemOk() {
+          let d = request.resource.data;
+          return !(d.get('type', '') in
+                   ['chatCleared', 'screenshot', 'screenshotBlock']) || (
+            d.text is string && d.text.size() <= 200 &&
+            d.get('imageUrl', null) == null &&
+            d.get('mediaUrl', null) == null &&
+            d.get('replyTo', null) == null &&
+            d.get('reactions', {}).size() == 0
+          );
+        }
+
         allow create: if isMemberOf(coupleId) &&
           request.resource.data.senderId == request.auth.uid &&
-          stickerOk();
+          stickerOk() && systemOk();
 
         // Either partner may mark seen, react, or pin — but never change
-        // what a message says or who sent it. Only the sender may delete.
+        // what a message says or who sent it. The sender may delete their
+        // own message. "Clear chat for both" first stamps the couple's
+        // `chatClearedAt` (server time), then either partner may delete any
+        // message sent up to that moment.
         allow update: if isMemberOf(coupleId) &&
-          changedKeys().hasOnly(['seen', 'reactions', 'pinned', 'pinnedAt']);
-        allow delete: if isMemberOf(coupleId) &&
-          resource.data.senderId == request.auth.uid;
+          changedKeys().hasOnly(['seen', 'reactions', 'pinned', 'pinnedAt']) &&
+          (!(resource.data.get('type', '') in
+             ['chatCleared', 'screenshot', 'screenshotBlock']) ||
+           changedKeys().hasOnly(['seen']));
+        allow delete: if isMemberOf(coupleId) && (
+          resource.data.senderId == request.auth.uid ||
+          (resource.data.get('sentAt', null) is timestamp &&
+           get(coupleDoc(coupleId)).data.get('chatClearedAt', null)
+             is timestamp &&
+           resource.data.sentAt <=
+             get(coupleDoc(coupleId)).data.chatClearedAt));
       }
 
       // Mood check-ins: one document per partner, and you own only your own.
@@ -450,6 +483,159 @@ service cloud.firestore {
 
       // ---- Chat look: colour and background both partners see ----------
       // Only `settings/chatLook` exists today. Either partner may change it.
+      // ---- Music and Watch: saved links and shared sessions --------------
+      // `songs` + `listening/now` (music) and `videos` + `watching/now`
+      // (YouTube watch-together) share one shape and one set of checks.
+      // Either partner may add, edit, love or delete an item. The link and
+      // who added it never change; plays only ever go up by one.
+      function mediaValid(sources, kinds) {
+        let d = request.resource.data;
+        return d.url is string && d.url.size() <= 2000 &&
+          d.url.matches('^https://.+') &&
+          d.source in sources && d.kind in kinds &&
+          d.mediaId is string && d.mediaId.size() <= 64 &&
+          optStr('title', 200) && optStr('artist', 200) &&
+          optStr('note', 500) && optUrl('thumbnailUrl') &&
+          d.moment is string && d.moment.size() <= 32 &&
+          (!('lovedBy' in d) || (d.lovedBy is map &&
+            d.lovedBy.keys().hasOnly(
+              get(coupleDoc(coupleId)).data.memberIds))) &&
+          optInt('playCount', 0, 1000000000) &&
+          optTimestamp('lastPlayedAt');
+      }
+
+      function mediaCreateOk() {
+        return isMemberOf(coupleId) &&
+          request.resource.data.addedBy == request.auth.uid &&
+          request.resource.data.get('playCount', 0) == 0;
+      }
+
+      function mediaUpdateOk() {
+        return isMemberOf(coupleId) &&
+          !changedKeys().hasAny(['url', 'source', 'kind', 'mediaId',
+                                 'addedBy', 'createdAt']) &&
+          (!('playCount' in changedKeys()) ||
+           request.resource.data.playCount ==
+             resource.data.get('playCount', 0) + 1);
+      }
+
+      // The one shared session (`listening/now` or `watching/now`). Every
+      // playback change bumps `version` by exactly one (the app does it in a
+      // transaction), so two phones can't silently overwrite each other.
+      // Checking in touches only your own entry in `listeners`.
+      function sessionValid(sources) {
+        let d = request.resource.data;
+        return d.songId is string && d.songId.size() > 0 &&
+          d.songId.size() <= 64 &&
+          d.url is string && d.url.size() <= 2000 &&
+          d.url.matches('^https://.+') &&
+          d.source in sources &&
+          d.mediaId is string && d.mediaId.size() <= 64 &&
+          optStr('title', 200) && optStr('artist', 200) &&
+          optUrl('thumbnailUrl') &&
+          d.status in ['countdown', 'playing', 'paused', 'ended'] &&
+          d.positionMs is int && d.positionMs >= 0 &&
+          d.at is int &&
+          d.queue is list && d.queue.size() <= 50 &&
+          d.hostUid in get(coupleDoc(coupleId)).data.memberIds &&
+          d.listeners is map &&
+          d.listeners.keys().hasOnly(
+            get(coupleDoc(coupleId)).data.memberIds) &&
+          d.version is int;
+      }
+
+      // Who changed playback, when (server time), and the next version.
+      function playbackChange(previousVersion) {
+        return request.resource.data.updatedBy == request.auth.uid &&
+          request.resource.data.updatedAt == request.time &&
+          request.resource.data.version == previousVersion + 1;
+      }
+
+      function checkInOnly() {
+        return changedKeys().hasOnly(['listeners']) &&
+          request.resource.data.listeners
+            .diff(resource.data.listeners)
+            .affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      // `<sessions>/clock-{uid}` lets a phone measure server time.
+      function clockWriteOk(docId) {
+        return docId == 'clock-' + request.auth.uid &&
+          request.resource.data.keys().hasOnly(['t']) &&
+          request.resource.data.t == request.time;
+      }
+
+      function allSources() {
+        return ['spotify', 'youtube', 'youtubeMusic', 'appleMusic',
+                'jioSaavn', 'soundCloud', 'other'];
+      }
+
+      function youtubeSources() {
+        return ['youtube', 'youtubeMusic'];
+      }
+
+      match /songs/{songId} {
+        function valid() {
+          return mediaValid(allSources(),
+                            ['track', 'video', 'album', 'playlist', 'other']) &&
+            request.resource.data.moment in
+              ['ourSong', 'romantic', 'missYou', 'happy', 'sad', 'roadTrip',
+               'dance', 'chill', 'other'];
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if mediaCreateOk() && valid();
+        allow update: if mediaUpdateOk() && valid();
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      // Videos to watch together: YouTube only, single videos only, so
+      // both phones can play them in the app.
+      match /videos/{videoId} {
+        function valid() {
+          return mediaValid(youtubeSources(), ['video']) &&
+            request.resource.data.mediaId.size() > 0 &&
+            request.resource.data.moment in
+              ['movieNight', 'funny', 'romantic', 'food', 'travel', 'music',
+               'learn', 'other'];
+        }
+
+        allow read: if isMemberOf(coupleId);
+        allow create: if mediaCreateOk() && valid();
+        allow update: if mediaUpdateOk() && valid();
+        allow delete: if isMemberOf(coupleId);
+      }
+
+      match /listening/{docId} {
+        allow read: if isMemberOf(coupleId) &&
+          (docId == 'now' || docId == 'clock-' + request.auth.uid);
+        allow create: if isMemberOf(coupleId) && (
+          (docId == 'now' && sessionValid(allSources()) &&
+           playbackChange(0)) ||
+          clockWriteOk(docId));
+        allow update: if isMemberOf(coupleId) && (
+          (docId == 'now' && sessionValid(allSources()) &&
+           (checkInOnly() || playbackChange(resource.data.version))) ||
+          clockWriteOk(docId));
+        allow delete: if false;
+      }
+
+      match /watching/{docId} {
+        allow read: if isMemberOf(coupleId) &&
+          (docId == 'now' || docId == 'clock-' + request.auth.uid);
+        allow create: if isMemberOf(coupleId) && (
+          (docId == 'now' && sessionValid(youtubeSources()) &&
+           request.resource.data.mediaId.size() > 0 &&
+           playbackChange(0)) ||
+          clockWriteOk(docId));
+        allow update: if isMemberOf(coupleId) && (
+          (docId == 'now' && sessionValid(youtubeSources()) &&
+           request.resource.data.mediaId.size() > 0 &&
+           (checkInOnly() || playbackChange(resource.data.version))) ||
+          clockWriteOk(docId));
+        allow delete: if false;
+      }
+
       match /settings/{docId} {
         function validLook() {
           let d = request.resource.data;
@@ -527,7 +713,8 @@ service cloud.firestore {
 
         allow read: if isMemberOf(coupleId);
         allow create: if isMemberOf(coupleId) &&
-          d().type in ['knowMe', 'truthOrDare', 'ticTacToe', 'connectFour'] &&
+          d().type in ['knowMe', 'truthOrDare', 'ticTacToe', 'connectFour',
+                       'ludo', 'snakesLadders'] &&
           d().createdBy == me() &&
           d().invitee != me() && isMember(d().invitee) &&
           d().players == [me(), d().invitee] &&

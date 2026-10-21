@@ -244,12 +244,23 @@ class _ScoreChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: active ? scheme.primaryContainer : scheme.surfaceContainerHigh,
+        color: active
+            ? (dark
+                  ? scheme.surface.withValues(alpha: .85)
+                  : Colors.white.withValues(alpha: .92))
+            : Colors.white.withValues(alpha: dark ? .08 : .4),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: active
+              ? scheme.primary
+              : Colors.white.withValues(alpha: dark ? .16 : .7),
+          width: 1.5,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

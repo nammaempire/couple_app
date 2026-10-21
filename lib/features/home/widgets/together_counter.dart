@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/couple/models/couple.dart';
@@ -149,25 +153,22 @@ class _CounterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primaryContainer,
-            Color.alphaBlend(
-              theme.colorScheme.primary.withValues(alpha: .18),
-              theme.colorScheme.primaryContainer,
-            ),
-          ],
-        ),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnimatedGradientCard(
+      preset: GradientPreset.blush,
+      radius: 26,
+      padding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: FloatingHearts(count: 9, seed: 3, opacity: dark ? .22 : .75),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            child: Center(child: child),
+          ),
+        ],
       ),
-      child: child,
     );
   }
 }

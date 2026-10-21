@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:flutter/services.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
@@ -44,16 +47,9 @@ class _LoveTapsCardState extends State<LoveTapsCard> {
     final theme = Theme.of(context);
     final sent = _justSent;
 
-    return Container(
-      width: double.infinity,
+    return AnimatedGradientCard(
+      preset: GradientPreset.sunset,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: .3),
-          width: 1.5,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -138,8 +134,10 @@ class _TapButton extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: highlighted
                         ? theme.colorScheme.primary.withValues(alpha: .22)
-                        : theme.colorScheme.primaryContainer.withValues(
-                            alpha: .6,
+                        : Colors.white.withValues(
+                            alpha: theme.brightness == Brightness.dark
+                                ? .12
+                                : .62,
                           ),
                   ),
                   child: Text(tap.emoji, style: const TextStyle(fontSize: 24)),

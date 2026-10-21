@@ -9,7 +9,10 @@ import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/home/models/important_date.dart';
 import 'package:couple_app/features/together/models/love_note.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/features/together/widgets/envelope_art.dart';
 import 'package:couple_app/features/together/widgets/note_paper.dart';
+import 'package:couple_app/features/together/widgets/note_theme.dart';
 import 'package:couple_app/features/together/widgets/voice_note_recorder.dart';
 
 enum _When { now, date }
@@ -241,6 +244,22 @@ class _NoteComposerScreenState extends ConsumerState<NoteComposerScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
               children: [
+                _ComposerHeader(
+                  look: _kind == NoteKind.openWhen
+                      ? NoteTheme.forOpenWhen(_openWhen)
+                      : NoteTheme.letter,
+                  emoji: _kind == NoteKind.openWhen ? _openWhen.emoji : '💌',
+                  title: _kind == NoteKind.openWhen
+                      ? _openWhen.label
+                      : 'A letter for $partnerName',
+                  subtitle: _when == _When.date && _deliverAt != null
+                      ? 'Sealed until '
+                            '${DateFormat.MMMd().add_jm().format(_deliverAt!)}'
+                      : _kind == NoteKind.openWhen
+                      ? 'Kept sealed for the right moment'
+                      : 'Delivered with love, right away',
+                ),
+                const SizedBox(height: 16),
                 SegmentedButton<NoteKind>(
                   showSelectedIcon: false,
                   segments: const [
@@ -294,18 +313,36 @@ class _NoteComposerScreenState extends ConsumerState<NoteComposerScreen> {
                   const SizedBox(height: 12),
                 ],
                 NotePaper(
-                  child: TextFormField(
-                    controller: _body,
-                    textCapitalization: TextCapitalization.sentences,
-                    minLines: 8,
-                    maxLines: 20,
-                    maxLength: 4000,
-                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.6),
-                    decoration: InputDecoration(
-                      hintText: 'Dear $partnerName,',
-                      filled: false,
-                      border: InputBorder.none,
-                      counterText: '',
+                  margin: true,
+                  padding: const EdgeInsets.fromLTRB(42, 6, 18, 10),
+                  child: RuledLines(
+                    lineHeight: 17 * 1.7,
+                    top: 12,
+                    child: TextFormField(
+                      controller: _body,
+                      textCapitalization: TextCapitalization.sentences,
+                      minLines: 8,
+                      maxLines: 20,
+                      maxLength: 4000,
+                      cursorColor: NoteInk.ink,
+                      style: noteSerif(
+                        theme.textTheme.bodyLarge,
+                      ).copyWith(fontSize: 17, height: 1.7, color: NoteInk.ink),
+                      decoration: InputDecoration(
+                        hintText: 'Dear $partnerName,',
+                        hintStyle: noteSerif(theme.textTheme.bodyLarge)
+                            .copyWith(
+                              fontSize: 17,
+                              fontStyle: FontStyle.italic,
+                              color: NoteInk.inkMuted,
+                            ),
+                        filled: false,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                        ),
+                        counterText: '',
+                      ),
                     ),
                   ),
                 ),
@@ -385,6 +422,63 @@ class _NoteComposerScreenState extends ConsumerState<NoteComposerScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A gradient strip at the top of the composer, in the colours of the
+/// chosen kind of note.
+class _ComposerHeader extends StatelessWidget {
+  const _ComposerHeader({
+    required this.look,
+    required this.emoji,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final NoteTheme look;
+  final String emoji;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final b = theme.brightness;
+    final preset = look.preset;
+    return AnimatedGradientCard(
+      preset: preset,
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+      child: Row(
+        children: [
+          WaxSeal(preset: preset, label: emoji, size: 48),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: noteSerif(theme.textTheme.titleMedium).copyWith(
+                    color: preset.foreground(b),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: preset.foregroundMuted(b),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

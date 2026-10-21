@@ -8,8 +8,11 @@ import 'package:couple_app/core/utils/duration_format.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/chat/models/message.dart';
 import 'package:couple_app/features/chat/providers/chat_providers.dart';
+import 'package:couple_app/features/chat/widgets/chat_privacy_scope.dart';
 
 /// Every photo and video shared in the chat, grouped by month.
+///
+/// Part of the conversation, so screenshot alerts and blocking apply.
 class MediaGalleryScreen extends ConsumerStatefulWidget {
   const MediaGalleryScreen({super.key});
 
@@ -28,20 +31,33 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
     _coupleId = ref.read(currentCoupleIdProvider);
   }
 
-  late Future<List<Message>> _media = ref
+  late Future<List<Message>> _media = _fetch();
+
+  /// Leaves out anything "clear chat" has hidden.
+  Future<List<Message>> _fetch() => ref
       .read(chatServiceProvider)
-      .fetchMedia(_coupleId);
+      .fetchMedia(_coupleId, clearedAt: ref.read(chatClearedAtProvider));
   _Filter _filter = _Filter.all;
 
   void _open(Message message) {
     if (message.type == MessageType.video) {
       final url = message.mediaUrl;
       if (url == null) return;
-      openVideo(context, url);
+      openVideo(
+        context,
+        url,
+        wrap: (viewer) =>
+            ChatPrivacyScope(subject: ScreenshotSubject.video, child: viewer),
+      );
     } else {
       final url = message.imageUrl;
       if (url == null) return;
-      openPhoto(context, url);
+      openPhoto(
+        context,
+        url,
+        wrap: (viewer) =>
+            ChatPrivacyScope(subject: ScreenshotSubject.photo, child: viewer),
+      );
     }
   }
 
@@ -49,6 +65,10 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    return ChatPrivacyScope(child: _buildScaffold(theme));
+  }
+
+  Widget _buildScaffold(ThemeData theme) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Photos & videos'),
@@ -75,9 +95,7 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
           if (snapshot.hasError) {
             return Center(
               child: TextButton.icon(
-                onPressed: () => setState(() {
-                  _media = ref.read(chatServiceProvider).fetchMedia(_coupleId);
-                }),
+                onPressed: () => setState(() => _media = _fetch()),
                 icon: const Icon(Icons.refresh),
                 label: const Text('Could not load. Try again'),
               ),

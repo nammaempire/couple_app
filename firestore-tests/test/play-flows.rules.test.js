@@ -8,7 +8,7 @@ const {
 } = require('@firebase/rules-unit-testing');
 const {
   doc, getDoc, setDoc, collection, query, orderBy, limit, getDocs,
-  runTransaction, serverTimestamp,
+  runTransaction, serverTimestamp, updateDoc,
 } = require('firebase/firestore');
 
 const C = 'couple1';
@@ -231,6 +231,83 @@ describe('play flows: exact client writes', () => {
     assert.strictEqual(g.state.board.filter((c) => c).length, 1);
     assert.strictEqual(results.filter((r) => r.status === 'fulfilled').length, 1);
   });
+
+  // ---- snakes & ladders: one write per roll (SnakesLaddersLogic) ----
+  it('snakes & ladders: rolls, a ladder, a snake, extra roll on 6, then a win', async () => {
+    await assertSucceeds(invite('alice', 'bob', 'snakesLadders',
+      { positions: { alice: 0, bob: 0 }, lastRoll: null, sixes: 0 }, 'sl'));
+    await assertSucceeds(accept('bob', 'sl', 'bob'));
+    const roll = (me, other, to, extra = {}) => takeTurn(me, 'sl', (g) => ({
+      state: {
+        positions: { ...g.state.positions, [me]: to },
+        lastRoll: { by: me, value: extra.value ?? 3, from: g.state.positions[me], to,
+          via: extra.via ?? null, viaFrom: extra.viaFrom ?? null, viaTo: extra.viaTo ?? null,
+          bounced: false, forfeit: false, again: !!extra.again },
+        sixes: extra.again ? 1 : 0,
+      },
+      turn: extra.again ? me : other,
+      ...(to === 100 ? { status: 'finished', turn: null, winner: me } : {}),
+    }));
+    await assertSucceeds(roll('bob', 'alice', 38, { value: 1, via: 'ladder', viaFrom: 1, viaTo: 38 }));
+    // Not Bob's turn any more: a direct write (skipping the app's own check).
+    const now = await read('sl');
+    await assertFails(updateDoc(gref('bob', 'sl'), { 'state.positions.bob': 40, moveCount: now.moveCount + 1 }));
+    await assertSucceeds(roll('alice', 'bob', 6, { value: 6, again: true }));
+    await assertSucceeds(roll('alice', 'bob', 9, { value: 3 })); // same player again after a 6
+    await assertSucceeds(roll('bob', 'alice', 19, { value: 24, via: 'snake', viaFrom: 62, viaTo: 19 }));
+    await assertSucceeds(roll('alice', 'bob', 100, { value: 4 }));
+    const g = await read('sl');
+    assert.strictEqual(g.status, 'finished');
+    assert.strictEqual(g.winner, 'alice');
+    const done = await read('sl');
+    await assertFails(updateDoc(gref('bob', 'sl'), { 'state.positions.bob': 22, moveCount: done.moveCount + 1 })); // frozen
+  });
+
+  // ---- ludo: roll write, then move write (LudoLogic) ----
+  it('ludo: roll keeps the turn for the move, pass with no move, capture, win', async () => {
+    await assertSucceeds(invite('alice', 'bob', 'ludo', {
+      mode: 'quick', tokens: { alice: [-1, -1], bob: [-1, -1] },
+      pendingRoll: null, lastRoll: null, sixes: 0,
+    }, 'ld'));
+    await assertSucceeds(accept('bob', 'ld', 'bob'));
+    const lr = (by, value, o = {}) => ({ by, value, token: null, from: null, to: null,
+      captured: [], passed: false, forfeit: false, again: false, ...o });
+    // Bob rolls a 6: one token can leave, turn stays with Bob.
+    await assertSucceeds(takeTurn('bob', 'ld', (g) => ({
+      state: { ...g.state, pendingRoll: { value: 6, movable: [0, 1] }, lastRoll: lr('bob', 6), sixes: 1 },
+      turn: 'bob',
+    })));
+    const mid = await read('ld');
+    await assertFails(updateDoc(gref('alice', 'ld'), { turn: 'alice', moveCount: mid.moveCount + 1 }));
+    // Bob moves token 0 out; extra roll for the 6.
+    await assertSucceeds(takeTurn('bob', 'ld', (g) => ({
+      state: { ...g.state, tokens: { ...g.state.tokens, bob: [0, -1] }, pendingRoll: null,
+        lastRoll: lr('bob', 6, { token: 0, from: -1, to: 0, again: true }) },
+      turn: 'bob',
+    })));
+    // Bob rolls 2, moves, turn passes.
+    await assertSucceeds(takeTurn('bob', 'ld', (g) => ({
+      state: { ...g.state, pendingRoll: { value: 2, movable: [0] }, lastRoll: lr('bob', 2), sixes: 0 }, turn: 'bob',
+    })));
+    await assertSucceeds(takeTurn('bob', 'ld', (g) => ({
+      state: { ...g.state, tokens: { ...g.state.tokens, bob: [2, -1] }, pendingRoll: null,
+        lastRoll: lr('bob', 2, { token: 0, from: 0, to: 2 }) },
+      turn: 'alice',
+    })));
+    // Alice rolls 3 with everything in the yard: no move, turn passes in one write.
+    await assertSucceeds(takeTurn('alice', 'ld', (g) => ({
+      state: { ...g.state, pendingRoll: null, lastRoll: lr('alice', 3, { passed: true }), sixes: 0 },
+      turn: 'bob',
+    })));
+    // Jump to the end: Bob brings his last token home and wins.
+    await assertSucceeds(takeTurn('bob', 'ld', (g) => ({
+      state: { ...g.state, tokens: { alice: [-1, -1], bob: [56, 56] }, pendingRoll: null,
+        lastRoll: lr('bob', 4, { token: 1, from: 52, to: 56 }) },
+      status: 'finished', turn: null, winner: 'bob',
+    })));
+    assert.strictEqual((await read('ld')).winner, 'bob');
+  });
+
 });
 
 });

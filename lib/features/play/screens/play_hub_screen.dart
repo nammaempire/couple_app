@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/play/data/game_service.dart';
@@ -53,6 +56,8 @@ class _PlayHubScreenState extends ConsumerState<PlayHubScreen> {
       await GameCatalog.open(context, open);
       return;
     }
+    final options = await GameCatalog.pickOptions(context, type);
+    if (options == null || !mounted) return;
     setState(() => _busyTypes.add(type));
     try {
       final id = await _service.invite(
@@ -60,7 +65,12 @@ class _PlayHubScreenState extends ConsumerState<PlayHubScreen> {
         type: type,
         me: _myUid,
         invitee: partnerUid,
-        state: GameCatalog.newState(type, inviter: _myUid, invitee: partnerUid),
+        state: GameCatalog.newState(
+          type,
+          inviter: _myUid,
+          invitee: partnerUid,
+          options: options,
+        ),
       );
       if (!mounted) return;
       setState(() => _busyTypes.remove(type));
@@ -187,11 +197,13 @@ class _PlayHubScreenState extends ConsumerState<PlayHubScreen> {
       else ...[
         if (waitingOnMe.isNotEmpty) ...[
           const CalendarSectionTitle(label: 'Waiting on you'),
-          for (final g in waitingOnMe) row(g, mine: true),
+          for (final (i, g) in waitingOnMe.indexed)
+            EntranceAnimation(index: i, child: row(g, mine: true)),
         ],
         if (waitingOnPartner.isNotEmpty) ...[
           CalendarSectionTitle(label: 'Waiting on $partnerName'),
-          for (final g in waitingOnPartner) row(g),
+          for (final (i, g) in waitingOnPartner.indexed)
+            EntranceAnimation(index: i, child: row(g)),
         ],
         if (games.isEmpty) ...[
           if (partnerUid != null)
@@ -241,7 +253,8 @@ class _PlayHubScreenState extends ConsumerState<PlayHubScreen> {
       ],
       if (recent.isNotEmpty) ...[
         const CalendarSectionTitle(label: 'Recent games'),
-        for (final g in recent) row(g),
+        for (final (i, g) in recent.indexed)
+          EntranceAnimation(index: i, child: row(g)),
       ],
     ];
 
@@ -265,26 +278,26 @@ class _Banner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: AnimatedGradientCard(
+        preset: GradientPreset.blush,
+        radius: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: GradientPreset.blush.foreground(theme.brightness),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

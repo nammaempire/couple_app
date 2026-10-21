@@ -2,15 +2,17 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 
 /// A round photo slot that opens camera or gallery when tapped.
 ///
 /// Shows, in order of preference: a freshly picked [file], an existing
 /// [imageUrl], or a placeholder [icon].
-class PhotoPickerAvatar extends StatelessWidget {
+class PhotoPickerAvatar extends ConsumerWidget {
   const PhotoPickerAvatar({
     super.key,
     required this.onPicked,
@@ -28,7 +30,9 @@ class PhotoPickerAvatar extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  Future<void> _pick(BuildContext context) async {
+  Future<void> _pick(BuildContext context, WidgetRef ref) async {
+    // Read up front: the widget may be gone by the time the picker returns.
+    final appLock = ref.read(appLockControllerProvider.notifier);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -52,10 +56,12 @@ class PhotoPickerAvatar extends StatelessWidget {
     if (source == null) return;
 
     try {
-      final picked = await ImagePicker().pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 1080,
+      final picked = await appLock.suspendWhile(
+        ImagePicker().pickImage(
+          source: source,
+          imageQuality: 85,
+          maxWidth: 1080,
+        ),
       );
       if (picked != null) onPicked(File(picked.path));
     } catch (_) {
@@ -65,7 +71,7 @@ class PhotoPickerAvatar extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     Widget content;
@@ -89,7 +95,7 @@ class PhotoPickerAvatar extends StatelessWidget {
       button: true,
       label: label,
       child: GestureDetector(
-        onTap: () => _pick(context),
+        onTap: () => _pick(context, ref),
         child: Stack(
           clipBehavior: Clip.none,
           children: [

@@ -22,31 +22,53 @@ class ChatDateDivider extends StatelessWidget {
 
     final theme = Theme.of(context);
     final palette = ChatPalette.of(context);
-    final text = Text(
-      label,
-      style: theme.textTheme.labelSmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
+    final scheme = theme.colorScheme;
+
+    Widget line(bool leading) => Expanded(
+      child: Container(
+        height: 1,
+        margin: EdgeInsets.only(
+          left: leading ? 32 : 10,
+          right: leading ? 10 : 32,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              scheme.primary.withValues(alpha: leading ? 0 : .28),
+              scheme.primary.withValues(alpha: leading ? .28 : 0),
+            ],
+          ),
+        ),
       ),
     );
 
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: palette.hasBackground ? 8 : 12),
-      // Over a photo or pattern the label gets a pill to stay readable.
-      child: palette.hasBackground
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                color: palette.systemChip,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          // Over a photo or pattern, plain lines would get lost.
+          if (!palette.hasBackground) line(true) else const Spacer(),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.systemChip,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: palette.glassBorder),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: .4,
                 ),
-                child: text,
               ),
-            )
-          : text,
+            ),
+          ),
+          if (!palette.hasBackground) line(false) else const Spacer(),
+        ],
+      ),
     );
   }
 }

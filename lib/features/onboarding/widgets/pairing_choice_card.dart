@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Tappable card offering one of the pairing paths (create or join).
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
+
+/// Tappable card offering one of the pairing paths (create or join), on a
+/// drifting gradient.
 class PairingChoiceCard extends StatelessWidget {
   const PairingChoiceCard({
     super.key,
@@ -8,62 +13,53 @@ class PairingChoiceCard extends StatelessWidget {
     required this.title,
     required this.body,
     required this.onTap,
+    this.preset = GradientPreset.blush,
   });
 
   final IconData icon;
   final String title;
   final String body;
   final VoidCallback onTap;
+  final GradientPreset preset;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.primaryContainer.withValues(alpha: .55),
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  shape: BoxShape.circle,
+    final b = theme.brightness;
+    return AnimatedGradientCard(
+      preset: preset,
+      onTap: onTap,
+      radius: 26,
+      padding: const EdgeInsets.fromLTRB(16, 18, 12, 18),
+      child: Row(
+        children: [
+          IconTile(icon: icon, preset: preset, size: 52),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: romanceSerif(theme.textTheme.titleLarge).copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: preset.foreground(b),
+                  ),
                 ),
-                child: Icon(icon, color: theme.colorScheme.primary),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      body,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: preset.foregroundMuted(b),
+                    height: 1.35,
+                  ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right_rounded, color: preset.foregroundMuted(b)),
+        ],
       ),
     );
   }

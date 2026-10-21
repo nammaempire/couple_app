@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/data/auth_service.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
@@ -11,6 +14,7 @@ import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/onboarding/widgets/notification_prefs_sheet.dart';
 import 'package:couple_app/features/onboarding/widgets/privacy_sheet.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Shown once, right after both partners connect: a short checklist of
 /// things that make the space feel like theirs. Everything is skippable.
@@ -118,6 +122,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
       _ChecklistItem(
         icon: Icons.favorite_outline,
         title: 'Your anniversary',
+        preset: GradientPreset.blush,
         doneLabel: _startDate == null
             ? null
             : 'Since ${DateFormat.yMMMMd().format(_startDate!)}',
@@ -127,6 +132,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
       _ChecklistItem(
         icon: Icons.cake_outlined,
         title: 'Your birthday',
+        preset: GradientPreset.peach,
         doneLabel: me.birthday == null
             ? null
             : DateFormat.MMMMd().format(me.birthday!),
@@ -136,6 +142,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
       _ChecklistItem(
         icon: Icons.notifications_none,
         title: 'Notifications',
+        preset: GradientPreset.ocean,
         doneLabel: me.notificationsReviewed ? 'Preferences saved' : null,
         todoLabel: 'Choose what you want to hear about',
         onTap: _setNotifications,
@@ -143,6 +150,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
       _ChecklistItem(
         icon: Icons.shield_outlined,
         title: 'Privacy',
+        preset: GradientPreset.mint,
         doneLabel: me.privacyReviewed ? 'Reviewed' : null,
         todoLabel: 'See who can see what',
         onTap: _reviewPrivacy,
@@ -151,64 +159,131 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
     final doneCount = items.where((i) => i.isDone).length;
     final allDone = doneCount == items.length;
 
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    const hero = GradientPreset.festive;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    Icons.favorite,
-                    size: 56,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'You\'re connected!',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.couple.coupleName == null
-                        ? 'A few quick things to make this space yours.'
-                        : 'A few quick things to make '
-                              '“${widget.couple.coupleName}” yours.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: doneCount / items.length,
-                            minHeight: 6,
+                children: staggered([
+                  AnimatedGradientCard(
+                    preset: hero,
+                    radius: 30,
+                    padding: EdgeInsets.zero,
+                    child: Stack(
+                      fit: StackFit.passthrough,
+                      children: [
+                        Positioned.fill(
+                          child: FloatingHearts(
+                            count: 10,
+                            style: ParticleStyle.confetti,
+                            opacity: dark ? .35 : .45,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        '$doneCount of ${items.length}',
-                        style: theme.textTheme.labelMedium,
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 26, 20, 22),
+                          child: Column(
+                            children: [
+                              const GlowBadge(
+                                preset: GradientPreset.blush,
+                                size: 68,
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'You\'re connected!',
+                                textAlign: TextAlign.center,
+                                style:
+                                    romanceSerif(
+                                      theme.textTheme.headlineMedium,
+                                    ).copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontStyle: FontStyle.italic,
+                                      color: hero.foreground(b),
+                                    ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                widget.couple.coupleName == null
+                                    ? 'A few quick things to make this space yours.'
+                                    : 'A few quick things to make '
+                                          '“${widget.couple.coupleName}” yours.',
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: hero.foregroundMuted(b),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Container(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  10,
+                                  14,
+                                  10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(
+                                    alpha: dark ? .1 : .6,
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: TweenAnimationBuilder<double>(
+                                          tween: Tween(
+                                            end: doneCount / items.length,
+                                          ),
+                                          duration: const Duration(
+                                            milliseconds: 500,
+                                          ),
+                                          curve: Curves.easeOutCubic,
+                                          builder: (context, v, _) =>
+                                              LinearProgressIndicator(
+                                                value: v,
+                                                minHeight: 8,
+                                                color: dark
+                                                    ? hero.accent(b)
+                                                    : hero.ink,
+                                                backgroundColor: hero
+                                                    .foreground(b)
+                                                    .withValues(alpha: .12),
+                                              ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      '$doneCount of ${items.length}',
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: hero.foreground(b),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   ...items,
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   FilledButton(
                     onPressed: _finishing ? null : _finish,
+                    style: pillButtonStyle(context),
                     child: _finishing
                         ? const SizedBox(
                             width: 20,
@@ -218,7 +293,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
                         : Text(allDone ? 'Start exploring' : 'Continue'),
                   ),
                   if (!allDone) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(
                       'You can finish these any time from the Us tab.',
                       textAlign: TextAlign.center,
@@ -227,7 +302,7 @@ class _SetupChecklistScreenState extends ConsumerState<SetupChecklistScreen> {
                       ),
                     ),
                   ],
-                ],
+                ]),
               ),
             ),
           ),
@@ -241,6 +316,7 @@ class _ChecklistItem extends StatelessWidget {
   const _ChecklistItem({
     required this.icon,
     required this.title,
+    required this.preset,
     required this.doneLabel,
     required this.todoLabel,
     required this.onTap,
@@ -248,6 +324,7 @@ class _ChecklistItem extends StatelessWidget {
 
   final IconData icon;
   final String title;
+  final GradientPreset preset;
 
   /// Summary once done; null means still to do.
   final String? doneLabel;
@@ -259,61 +336,62 @@ class _ChecklistItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final b = theme.brightness;
+    final accent = preset.isDarkIn(b) ? preset.accent(b) : preset.ink;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: isDone
-            ? scheme.primaryContainer.withValues(alpha: .45)
-            : scheme.surfaceContainerHighest.withValues(alpha: .5),
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                Icon(icon, color: scheme.primary),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        doneLabel ?? todoLabel,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AnimatedGradientCard(
+        preset: preset,
+        onTap: onTap,
+        radius: 22,
+        sheen: !isDone,
+        padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+        child: Row(
+          children: [
+            IconTile(icon: icon, preset: preset),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: preset.foreground(b),
+                    ),
                   ),
-                ),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: isDone
-                      ? Icon(
-                          Icons.check_circle,
-                          key: const ValueKey('done'),
-                          color: scheme.primary,
-                        )
-                      : Icon(
-                          Icons.radio_button_unchecked,
-                          key: const ValueKey('todo'),
-                          color: scheme.outline,
-                        ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    doneLabel ?? todoLabel,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: preset.foregroundMuted(b),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, a) =>
+                  ScaleTransition(scale: a, child: child),
+              child: isDone
+                  ? Icon(
+                      Icons.check_circle_rounded,
+                      key: const ValueKey('done'),
+                      color: accent,
+                      size: 28,
+                    )
+                  : Icon(
+                      Icons.radio_button_unchecked_rounded,
+                      key: const ValueKey('todo'),
+                      color: preset.foregroundMuted(b),
+                      size: 26,
+                    ),
+            ),
+          ],
         ),
       ),
     );

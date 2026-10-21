@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/expense.dart';
 import 'package:couple_app/features/plans/models/expense_math.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// One expense or settlement in the list, with what it means for you.
 class ExpenseTile extends StatelessWidget {
@@ -42,16 +44,24 @@ class ExpenseTile extends StatelessWidget {
     if (expense.isSettlement) {
       final iPaid = expense.paidBy == myUid;
       final line = iPaid ? 'You paid $partnerName' : '$partnerName paid you';
-      return ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-        leading: CircleAvatar(
-          backgroundColor: scheme.secondaryContainer,
-          foregroundColor: scheme.onSecondaryContainer,
-          child: const Icon(Icons.handshake_outlined, size: 20),
+      return _row(
+        context,
+        muted: true,
+        leading: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: scheme.secondaryContainer,
+          ),
+          child: Icon(
+            Icons.handshake_outlined,
+            size: 20,
+            color: scheme.onSecondaryContainer,
+          ),
         ),
-        title: Text(line),
-        subtitle: Text('Settled up · $day'),
+        title: line,
+        subtitle: 'Settled up · $day',
         trailing: Text(
           amount,
           style: theme.textTheme.titleSmall?.copyWith(
@@ -83,26 +93,17 @@ class ExpenseTile extends StatelessWidget {
       ExpenseSplit.custom => 'custom split',
     };
 
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      leading: CircleAvatar(
-        backgroundColor: scheme.surfaceContainerHighest,
-        child: Text(
-          expense.category.emoji,
-          style: const TextStyle(fontSize: 18),
-        ),
+    final preset = ExpenseLook.presetFor(expense.category);
+    return _row(
+      context,
+      preset: preset,
+      leading: EmojiBadge(
+        emoji: expense.category.emoji,
+        preset: preset,
+        size: 44,
       ),
-      title: Text(
-        expense.title.isEmpty ? expense.category.label : expense.title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        '$_payerName paid · $splitText · $day',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      title: expense.title.isEmpty ? expense.category.label : expense.title,
+      subtitle: '$_payerName paid · $splitText · $day',
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -121,11 +122,82 @@ class ExpenseTile extends StatelessWidget {
               effectText,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(color: effectColor),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: effectColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  Widget _row(
+    BuildContext context, {
+    required Widget leading,
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+    GradientPreset preset = GradientPreset.blush,
+    bool muted = false,
+  }) {
+    final theme = Theme.of(context);
+    return TintedCard(
+      preset: preset,
+      muted: muted,
+      strength: .5,
+      onTap: onTap,
+      radius: 20,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(10, 10, 14, 10),
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// The gradient each expense category wears.
+abstract final class ExpenseLook {
+  static GradientPreset presetFor(ExpenseCategory c) => switch (c) {
+    ExpenseCategory.food => GradientPreset.sunset,
+    ExpenseCategory.groceries => GradientPreset.mint,
+    ExpenseCategory.travel => GradientPreset.ocean,
+    ExpenseCategory.home => GradientPreset.peach,
+    ExpenseCategory.bills => GradientPreset.sunny,
+    ExpenseCategory.shopping => GradientPreset.blush,
+    ExpenseCategory.fun => GradientPreset.festive,
+    ExpenseCategory.gifts => GradientPreset.lavender,
+    ExpenseCategory.other => GradientPreset.gold,
+  };
 }

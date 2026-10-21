@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+
 /// The three onboarding stages, shown as a slim segmented bar.
 enum OnboardingStep {
   profile('About you'),
@@ -19,6 +21,15 @@ class OnboardingProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final current = step.index;
+    final n = OnboardingStep.values.length;
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    final from = dark
+        ? GradientPreset.blush.accent(b)
+        : GradientPreset.blush.ink;
+    final to = dark
+        ? GradientPreset.lavender.accent(b)
+        : GradientPreset.lavender.ink;
 
     return Semantics(
       label:
@@ -33,12 +44,20 @@ class OnboardingProgress extends StatelessWidget {
                 Expanded(
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    height: 4,
+                    height: 6,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(3),
                       color: s.index <= current
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.surfaceContainerHighest,
+                          ? null
+                          : theme.colorScheme.onSurface.withValues(alpha: .1),
+                      gradient: s.index <= current
+                          ? LinearGradient(
+                              colors: [
+                                Color.lerp(from, to, s.index / n)!,
+                                Color.lerp(from, to, (s.index + 1) / n)!,
+                              ],
+                            )
+                          : null,
                     ),
                   ),
                 ),
@@ -52,6 +71,8 @@ class OnboardingProgress extends StatelessWidget {
             '${step.label}',
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .3,
             ),
           ),
         ],

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 import 'package:couple_app/features/together/models/calendar_event.dart';
 import 'package:couple_app/features/together/widgets/calendar_event_tile.dart';
-import 'package:couple_app/features/together/widgets/calendar_section_title.dart';
 
 /// The selected day's events, or a prompt to plan something.
 class CalendarDaySection extends StatelessWidget {
@@ -26,10 +26,12 @@ class CalendarDaySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        CalendarSectionTitle(label: DateFormat.MMMMEEEEd().format(day)),
+        SoftSectionHeader(label: DateFormat.MMMMEEEEd().format(day)),
         if (events.isEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          TintedCard(
+            muted: true,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
             child: Row(
               children: [
                 Expanded(
@@ -49,12 +51,15 @@ class CalendarDaySection extends StatelessWidget {
             ),
           )
         else
-          for (final entry in events)
-            CalendarEventTile(
-              event: entry.$1,
-              when: entry.$2,
-              showDate: false,
-              onTap: () => onOpen(entry),
+          for (final (i, entry) in events.indexed)
+            stagger(
+              i,
+              CalendarEventTile(
+                event: entry.$1,
+                when: entry.$2,
+                showDate: false,
+                onTap: () => onOpen(entry),
+              ),
             ),
       ],
     );

@@ -1,5 +1,22 @@
 package com.nammaempire.together
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
 
-class MainActivity : FlutterActivity()
+/**
+ * A [FlutterFragmentActivity] rather than a plain FlutterActivity because
+ * local_auth (the app lock) shows the system biometric prompt as a fragment.
+ */
+class MainActivity : FlutterFragmentActivity() {
+    private val screenPrivacy = ScreenPrivacy(this)
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        screenPrivacy.attach(flutterEngine)
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        screenPrivacy.detach()
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+}

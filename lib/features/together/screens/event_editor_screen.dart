@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 import 'package:couple_app/features/together/models/calendar_event.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
+import 'package:couple_app/features/together/widgets/calendar_event_look.dart';
 import 'package:couple_app/features/together/widgets/event_picker_field.dart';
 
 /// Add or edit a calendar event.
@@ -202,6 +204,12 @@ class _EventEditorScreenState extends ConsumerState<EventEditorScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
+            if (!isEditing)
+              EditorHeaderStrip(
+                emoji: _type.emoji,
+                preset: _type.preset,
+                text: 'Something to look forward to, together.',
+              ),
             Wrap(
               spacing: 8,
               runSpacing: 8,

@@ -5,6 +5,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/glass.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/data/auth_service.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
@@ -13,6 +19,7 @@ import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/onboarding/widgets/onboarding_progress.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Onboarding step 3: share the invite and wait for the partner to accept.
 ///
@@ -60,15 +67,19 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
 
   Future<void> _share() async {
     final box = context.findRenderObject() as RenderBox?;
-    await SharePlus.instance.share(
-      ShareParams(
-        text: _shareText,
-        subject: 'Join me on Us',
-        sharePositionOrigin: box == null
-            ? null
-            : box.localToGlobal(Offset.zero) & box.size,
-      ),
-    );
+    await ref
+        .read(appLockControllerProvider.notifier)
+        .suspendWhile(
+          SharePlus.instance.share(
+            ShareParams(
+              text: _shareText,
+              subject: 'Join me on Us',
+              sharePositionOrigin: box == null
+                  ? null
+                  : box.localToGlobal(Offset.zero) & box.size,
+            ),
+          ),
+        );
   }
 
   void _copy() {
@@ -92,6 +103,10 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
+            style: pillButtonStyle(
+              dialogContext,
+              minimumSize: const Size(0, 44),
+            ),
             child: const Text('Cancel it'),
           ),
         ],
@@ -117,128 +132,173 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    const preset = GradientPreset.festive;
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('Invite your partner'),
-        actions: [
-          TextButton(
-            onPressed: _busy ? null : _auth.signOut,
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const OnboardingProgress(step: OnboardingStep.invite),
-                  const SizedBox(height: 24),
-                  Text(
-                    widget.couple.coupleName == null
-                        ? 'Your space is ready'
-                        : '“${widget.couple.coupleName}” is ready',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Send this invite to your partner. It works once, and '
-                    'only for them.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: QrImageView(
-                            data: InviteCode.qrPayload(_code),
-                            size: 180,
-                            backgroundColor: Colors.white,
-                            eyeStyle: const QrEyeStyle(
-                              eyeShape: QrEyeShape.circle,
-                              color: Color(0xFF3B2229),
-                            ),
-                            dataModuleStyle: const QrDataModuleStyle(
-                              dataModuleShape: QrDataModuleShape.circle,
-                              color: Color(0xFF3B2229),
-                            ),
-                            semanticsLabel: 'Invite QR code',
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Text(
-                          'or enter this code',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: scheme.onPrimaryContainer.withValues(
-                              alpha: .75,
+    return RomanceBackdrop(
+      preset: GradientPreset.blush,
+      strength: .5,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: romanceAppBar(
+          title: const Text('Invite your partner'),
+          actions: [
+            TextButton(
+              onPressed: _busy ? null : _auth.signOut,
+              child: const Text('Sign out'),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: staggered([
+                    const OnboardingProgress(step: OnboardingStep.invite),
+                    const SizedBox(height: 18),
+                    AnimatedGradientCard(
+                      preset: preset,
+                      radius: 30,
+                      padding: EdgeInsets.zero,
+                      child: Stack(
+                        fit: StackFit.passthrough,
+                        children: [
+                          Positioned.fill(
+                            child: FloatingHearts(
+                              count: 12,
+                              style: ParticleStyle.confetti,
+                              opacity: dark ? .3 : .45,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        SelectableText(
-                          _code,
-                          style: theme.textTheme.displaySmall?.copyWith(
-                            letterSpacing: 10,
-                            fontWeight: FontWeight.bold,
-                            color: scheme.onPrimaryContainer,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                            child: Column(
+                              children: [
+                                Text(
+                                  widget.couple.coupleName == null
+                                      ? 'Your space is ready'
+                                      : '“${widget.couple.coupleName}” is ready',
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      romanceSerif(
+                                        theme.textTheme.headlineSmall,
+                                      ).copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        fontStyle: FontStyle.italic,
+                                        color: preset.foreground(b),
+                                      ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'Send this invite to your partner. It works '
+                                  'once, and only for them.',
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: preset.foregroundMuted(b),
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(24),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: preset
+                                            .accent(b)
+                                            .withValues(alpha: .25),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: QrImageView(
+                                    data: InviteCode.qrPayload(_code),
+                                    size: 176,
+                                    backgroundColor: Colors.white,
+                                    eyeStyle: const QrEyeStyle(
+                                      eyeShape: QrEyeShape.circle,
+                                      color: Color(0xFF3B2229),
+                                    ),
+                                    dataModuleStyle: const QrDataModuleStyle(
+                                      dataModuleShape: QrDataModuleShape.circle,
+                                      color: Color(0xFF3B2229),
+                                    ),
+                                    semanticsLabel: 'Invite QR code',
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                Text(
+                                  'or enter this code',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: preset.foregroundMuted(b),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: SelectableText(
+                                    _code,
+                                    style: theme.textTheme.displaySmall
+                                        ?.copyWith(
+                                          letterSpacing: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: preset.foreground(b),
+                                        ),
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  onPressed: _copy,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: dark
+                                        ? preset.accent(b)
+                                        : preset.ink,
+                                  ),
+                                  icon: const Icon(Icons.copy, size: 18),
+                                  label: const Text('Copy code'),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        TextButton.icon(
-                          onPressed: _copy,
-                          icon: const Icon(Icons.copy, size: 18),
-                          label: const Text('Copy code'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _share,
-                    icon: const Icon(Icons.ios_share),
-                    label: const Text('Share invite'),
-                  ),
-                  const SizedBox(height: 24),
-
-                  const _WaitingIndicator(),
-                  const SizedBox(height: 24),
-
-                  Text(
-                    'On their phone, your partner signs up, taps “I have an '
-                    'invite”, then scans this QR code or types the code.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _share,
+                      style: pillButtonStyle(context),
+                      icon: const Icon(Icons.ios_share),
+                      label: const Text('Share invite'),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _busy ? null : _useCodeInstead,
-                    child: const Text('My partner already sent me a code'),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+
+                    const Center(child: _WaitingIndicator()),
+                    const SizedBox(height: 20),
+
+                    Text(
+                      'On their phone, your partner signs up, taps “I have an '
+                      'invite”, then scans this QR code or types the code.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _busy ? null : _useCodeInstead,
+                      child: const Text('My partner already sent me a code'),
+                    ),
+                  ]),
+                ),
               ),
             ),
           ),
@@ -248,46 +308,43 @@ class _InviteScreenState extends ConsumerState<InviteScreen> {
   }
 }
 
-/// A gently pulsing heart with "waiting" copy.
-class _WaitingIndicator extends StatefulWidget {
+/// A gently pulsing heart with "waiting" copy, on a frosted pill.
+class _WaitingIndicator extends StatelessWidget {
   const _WaitingIndicator();
-
-  @override
-  State<_WaitingIndicator> createState() => _WaitingIndicatorState();
-}
-
-class _WaitingIndicatorState extends State<_WaitingIndicator>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1100),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ScaleTransition(
-          scale: Tween(
-            begin: .85,
-            end: 1.1,
-          ).animate(CurvedAnimation(parent: _pulse, curve: Curves.easeInOut)),
-          child: Icon(Icons.favorite, color: theme.colorScheme.primary),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          'Waiting for your partner to join…',
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
+    final dark = theme.brightness == Brightness.dark;
+    return GlassPanel(
+      dark: dark,
+      radius: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RepaintBoundary(
+            child: Pulse(
+              duration: const Duration(milliseconds: 1100),
+              child: Icon(
+                Icons.favorite_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              builder: (context, v, child) =>
+                  Transform.scale(scale: .88 + .22 * v, child: child),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Waiting for your partner to join…',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

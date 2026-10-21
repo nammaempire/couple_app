@@ -50,7 +50,28 @@ class ChatBackgroundLayer extends StatelessWidget {
       );
     }
 
-    return ColoredBox(color: base, child: const SizedBox.expand());
+    // Plain: the chat colour as a soft wash, deepest at the bottom.
+    final scheme = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            base,
+            Color.alphaBlend(
+              scheme.primaryContainer.withValues(alpha: .14),
+              base,
+            ),
+            Color.alphaBlend(
+              scheme.tertiaryContainer.withValues(alpha: .22),
+              base,
+            ),
+          ],
+        ),
+      ),
+      child: const SizedBox.expand(),
+    );
   }
 }
 

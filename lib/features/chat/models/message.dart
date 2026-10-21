@@ -13,13 +13,45 @@ enum MessageType {
 
   /// A couple avatar sticker. [Message.text] holds its quote, so older app
   /// versions (which show unknown types as text) still show the words.
-  sticker;
+  sticker,
+
+  /// System line: the sender cleared the whole chat for both partners.
+  chatCleared,
+
+  /// System line: the sender took a screenshot of the chat, or of a photo
+  /// or video opened from it ([Message.screenshotOf]).
+  screenshot,
+
+  /// System line: the sender turned screenshot blocking on or off
+  /// ([Message.screenshotsBlocked]).
+  screenshotBlock;
+
+  /// Centred notices rather than bubbles. They carry a short [Message.text]
+  /// (so older app versions, which show unknown types as text, still say
+  /// something sensible) and no media, and they can't be replied to,
+  /// reacted to or pinned.
+  bool get isSystem =>
+      this == chatCleared || this == screenshot || this == screenshotBlock;
 
   static MessageType fromId(String? id) {
     for (final type in values) {
       if (type.name == id) return type;
     }
     return MessageType.text;
+  }
+}
+
+/// What was on screen when a screenshot was taken.
+enum ScreenshotSubject {
+  chat,
+  photo,
+  video;
+
+  static ScreenshotSubject fromId(String? id) {
+    for (final subject in values) {
+      if (subject.name == id) return subject;
+    }
+    return ScreenshotSubject.chat;
   }
 }
 
@@ -150,6 +182,15 @@ class Message {
   final String? stickerId;
   final String? stickerCategory;
 
+  /// For [MessageType.screenshot]: what was on screen.
+  final ScreenshotSubject screenshotOf;
+
+  /// For [MessageType.screenshotBlock]: whether blocking was turned on.
+  final bool screenshotsBlocked;
+
+  /// Longest text a system message may carry.
+  static const maxSystemTextLength = 200;
+
   const Message({
     required this.id,
     required this.senderId,
@@ -169,12 +210,24 @@ class Message {
     this.callOutcome,
     this.stickerId,
     this.stickerCategory,
+    this.screenshotOf = ScreenshotSubject.chat,
+    this.screenshotsBlocked = false,
   });
 
   Duration? get duration =>
       durationMs == null ? null : Duration(milliseconds: durationMs!);
 
   bool get isMedia => type == MessageType.image || type == MessageType.video;
+
+  bool get isSystem => type.isSystem;
+
+  /// Whether "clear chat" has hidden this message: it was sent at or before
+  /// [clearedAt]. Messages still waiting for their server time are newer
+  /// than any clear, so they always show.
+  bool isClearedBy(DateTime? clearedAt) {
+    final sent = sentAt;
+    return clearedAt != null && sent != null && !sent.isAfter(clearedAt);
+  }
 
   /// Distinct emoji on this message, in a stable order.
   List<String> get reactionEmoji {
@@ -209,6 +262,14 @@ class Message {
         };
       case MessageType.sticker:
         return text.trim().isEmpty ? 'Sticker' : '💞 ${text.trim()}';
+      case MessageType.chatCleared:
+        return text.isEmpty ? '🧹 Chat cleared' : text;
+      case MessageType.screenshot:
+        return text.isEmpty ? '📸 Screenshot taken' : text;
+      case MessageType.screenshotBlock:
+        return text.isEmpty
+            ? '🔒 Screenshot blocking turned ${screenshotsBlocked ? 'on' : 'off'}'
+            : text;
     }
   }
 
@@ -248,6 +309,8 @@ class Message {
           : CallOutcome.fromId(data['callOutcome'] as String?),
       stickerId: sticker.id,
       stickerCategory: sticker.category,
+      screenshotOf: ScreenshotSubject.fromId(data['screenshotOf'] as String?),
+      screenshotsBlocked: (data['blocked'] as bool?) ?? false,
     );
   }
 
@@ -262,7 +325,22 @@ class Message {
     );
   }
 
-  Map<String, dynamic> toMap() => {
+  Map<String, dynamic> toMap() => type.isSystem ? _systemMap() : _map();
+
+  /// System messages: text and no media, so the stored shape stays small.
+  Map<String, dynamic> _systemMap() => {
+    'senderId': senderId,
+    'type': type.name,
+    'text': text,
+    'sentAt': FieldValue.serverTimestamp(),
+    'seen': seen,
+    if (type == MessageType.screenshot &&
+        screenshotOf != ScreenshotSubject.chat)
+      'screenshotOf': screenshotOf.name,
+    if (type == MessageType.screenshotBlock) 'blocked': screenshotsBlocked,
+  };
+
+  Map<String, dynamic> _map() => {
     'senderId': senderId,
     'type': type.name,
     'text': text,

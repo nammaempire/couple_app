@@ -1,11 +1,16 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/glass.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
 import 'package:couple_app/features/onboarding/widgets/busy_button_label.dart';
 import 'package:couple_app/features/onboarding/widgets/check_bullet.dart';
 import 'package:couple_app/features/onboarding/widgets/onboarding_progress.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_error_text.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Pairing step that shows who sent [invite] and asks to accept it.
 class PairingConfirmStep extends StatelessWidget {
@@ -27,6 +32,9 @@ class PairingConfirmStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    const preset = GradientPreset.blush;
     final photo = invite.inviterPhotoUrl;
     final initial = invite.inviterName.isEmpty
         ? '?'
@@ -36,58 +44,86 @@ class PairingConfirmStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const OnboardingProgress(step: OnboardingStep.space),
-        const SizedBox(height: 32),
-        Center(
-          child: CircleAvatar(
-            radius: 48,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            backgroundImage: photo == null
-                ? null
-                : CachedNetworkImageProvider(photo),
-            child: photo == null
-                ? Text(
-                    initial,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      color: theme.colorScheme.onPrimaryContainer,
+        const SizedBox(height: 20),
+        AnimatedGradientCard(
+          preset: GradientPreset.blush,
+          radius: 30,
+          padding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Positioned.fill(
+                child: FloatingHearts(
+                  count: 12,
+                  color: Colors.white,
+                  opacity: dark ? .25 : .75,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+                child: Column(
+                  children: [
+                    GlowRing(
+                      child: CircleAvatar(
+                        radius: 46,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        backgroundImage: photo == null
+                            ? null
+                            : CachedNetworkImageProvider(photo),
+                        child: photo == null
+                            ? Text(
+                                initial,
+                                style:
+                                    romanceSerif(
+                                      theme.textTheme.headlineMedium,
+                                    ).copyWith(
+                                      color:
+                                          theme.colorScheme.onPrimaryContainer,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              )
+                            : null,
+                      ),
                     ),
-                  )
-                : null,
+                    const SizedBox(height: 16),
+                    Text(
+                      '${invite.inviterName} invited you',
+                      textAlign: TextAlign.center,
+                      style: romanceSerif(theme.textTheme.headlineSmall)
+                          .copyWith(
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FontStyle.italic,
+                            color: preset.foreground(b),
+                          ),
+                    ),
+                    if (invite.coupleName != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'to join “${invite.coupleName}”',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: preset.foregroundMuted(b),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 18),
-        Text(
-          '${invite.inviterName} invited you',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (invite.coupleName != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            'to join “${invite.coupleName}”',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-        const SizedBox(height: 24),
-        Container(
+        const SizedBox(height: 16),
+        GlassPanel(
+          dark: dark,
+          radius: 22,
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(
-              alpha: .5,
-            ),
-            borderRadius: BorderRadius.circular(18),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'When you accept',
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 10),
@@ -107,6 +143,7 @@ class PairingConfirmStep extends StatelessWidget {
         const SizedBox(height: 24),
         FilledButton(
           onPressed: busy ? null : onAccept,
+          style: pillButtonStyle(context),
           child: BusyButtonLabel(busy: busy, label: 'Accept and connect'),
         ),
         const SizedBox(height: 8),

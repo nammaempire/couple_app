@@ -9,6 +9,8 @@ import 'package:couple_app/features/plans/models/place.dart';
 import 'package:couple_app/features/plans/providers/place_providers.dart';
 import 'package:couple_app/features/plans/widgets/place_rating_stars.dart';
 import 'package:couple_app/features/together/widgets/event_picker_field.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/place_card.dart';
 
 /// Add or edit a place.
 class PlaceEditorScreen extends ConsumerStatefulWidget {
@@ -144,6 +146,12 @@ class _PlaceEditorScreenState extends ConsumerState<PlaceEditorScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
+              if (!isEditing)
+                EditorHeaderStrip(
+                  emoji: _category.emoji,
+                  preset: PlaceLook.presetFor(_category),
+                  text: 'Pin a spot on your map of us.',
+                ),
               SizedBox(
                 width: double.infinity,
                 child: SegmentedButton<PlaceStatus>(
@@ -182,8 +190,7 @@ class _PlaceEditorScreenState extends ConsumerState<PlaceEditorScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('Category', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SoftFieldLabel('Category'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -205,7 +212,7 @@ class _PlaceEditorScreenState extends ConsumerState<PlaceEditorScreen> {
                   onTap: _pickVisited,
                 ),
                 const SizedBox(height: 12),
-                Text('Your rating', style: theme.textTheme.titleSmall),
+                const SoftFieldLabel('Your rating'),
                 PlaceRatingStars(
                   rating: _rating,
                   size: 30,

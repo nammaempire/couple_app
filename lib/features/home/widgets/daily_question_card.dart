@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+
 import 'package:couple_app/features/home/models/daily_question.dart';
 
 /// Today's shared prompt. Answers stay hidden until both have replied.
@@ -54,13 +57,8 @@ class _DailyQuestionCardState extends State<DailyQuestionCard> {
     final entry = widget.entry;
     final iAnswered = entry.hasAnswered(widget.myUid);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer.withValues(alpha: .55),
-        borderRadius: BorderRadius.circular(24),
-      ),
+    return AnimatedGradientCard(
+      preset: GradientPreset.peach,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

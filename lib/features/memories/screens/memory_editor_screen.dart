@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/memories/data/memory_service.dart';
 import 'package:couple_app/features/memories/models/memory.dart';
@@ -14,6 +16,7 @@ import 'package:couple_app/features/memories/providers/memory_providers.dart';
 import 'package:couple_app/features/memories/widgets/memory_add_media_sheet.dart';
 import 'package:couple_app/features/memories/widgets/memory_album_picker.dart';
 import 'package:couple_app/features/memories/widgets/memory_media_strip.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Create a new memory, or edit an existing one when [memory] is given.
 class MemoryEditorScreen extends ConsumerStatefulWidget {
@@ -94,11 +97,15 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
       return;
     }
     try {
-      final picked = await _picker.pickMultiImage(
-        imageQuality: 85,
-        maxWidth: 2400,
-        limit: _room > 1 ? _room : null,
-      );
+      final picked = await ref
+          .read(appLockControllerProvider.notifier)
+          .suspendWhile(
+            _picker.pickMultiImage(
+              imageQuality: 85,
+              maxWidth: 2400,
+              limit: _room > 1 ? _room : null,
+            ),
+          );
       if (picked.isEmpty || !mounted) return;
       setState(() {
         for (final p in picked.take(_room)) {
@@ -120,10 +127,14 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
     }
     final XFile? picked;
     try {
-      picked = await _picker.pickVideo(
-        source: source,
-        maxDuration: const Duration(minutes: 3),
-      );
+      picked = await ref
+          .read(appLockControllerProvider.notifier)
+          .suspendWhile(
+            _picker.pickVideo(
+              source: source,
+              maxDuration: const Duration(minutes: 3),
+            ),
+          );
     } catch (_) {
       if (mounted) {
         context.showSnackMessage(
@@ -156,11 +167,15 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
   Future<void> _takePhoto() async {
     if (_room <= 0) return;
     try {
-      final picked = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 85,
-        maxWidth: 2400,
-      );
+      final picked = await ref
+          .read(appLockControllerProvider.notifier)
+          .suspendWhile(
+            _picker.pickImage(
+              source: ImageSource.camera,
+              imageQuality: 85,
+              maxWidth: 2400,
+            ),
+          );
       if (picked == null || !mounted) return;
       setState(
         () => _added.add(PendingMedia(file: File(picked.path), isVideo: false)),
@@ -330,6 +345,12 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
+                if (!_isEditing)
+                  EditorHeaderStrip(
+                    emoji: '📸',
+                    preset: GradientPreset.sunset,
+                    text: 'Keep a moment you never want to forget.',
+                  ),
                 MemoryMediaStrip(
                   kept: _kept,
                   added: _added,
@@ -394,8 +415,7 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Album', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 8),
+                const SoftFieldLabel('Album'),
                 MemoryAlbumPicker(
                   albums: _albums,
                   selected: _album,

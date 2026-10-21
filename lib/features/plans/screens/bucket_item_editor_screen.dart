@@ -6,6 +6,8 @@ import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/plans/data/bucket_list_service.dart';
 import 'package:couple_app/features/plans/models/bucket_item.dart';
 import 'package:couple_app/features/plans/providers/bucket_list_providers.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/bucket_item_tile.dart';
 
 /// Add or edit a bucket-list item, with notes and a target year.
 ///
@@ -115,8 +117,6 @@ class _BucketItemEditorScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return PopScope(
       canPop: !_saving,
       child: Scaffold(
@@ -155,6 +155,12 @@ class _BucketItemEditorScreenState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
+              if (!_isEditing)
+                EditorHeaderStrip(
+                  emoji: _category.emoji,
+                  preset: BucketLook.presetFor(_category),
+                  text: 'Someday starts with writing it down.',
+                ),
               TextFormField(
                 controller: _title,
                 autofocus: !_isEditing && _title.text.isEmpty,
@@ -169,8 +175,7 @@ class _BucketItemEditorScreenState
                     (v == null || v.trim().isEmpty) ? 'Add a title' : null,
               ),
               const SizedBox(height: 20),
-              Text('Category', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SoftFieldLabel('Category'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

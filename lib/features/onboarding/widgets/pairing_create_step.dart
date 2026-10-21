@@ -7,6 +7,7 @@ import 'package:couple_app/core/widgets/photo_picker_avatar.dart';
 import 'package:couple_app/features/onboarding/widgets/busy_button_label.dart';
 import 'package:couple_app/features/onboarding/widgets/onboarding_progress.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_error_text.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Pairing step for creating a new couple space: photo, name and start date.
 class PairingCreateStep extends StatelessWidget {
@@ -39,13 +40,23 @@ class PairingCreateStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const OnboardingProgress(step: OnboardingStep.space),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
+        Text(
+          'Make a home for two',
+          textAlign: TextAlign.center,
+          style: romanceSerif(
+            theme.textTheme.headlineSmall,
+          ).copyWith(fontWeight: FontWeight.w700, fontStyle: FontStyle.italic),
+        ),
+        const SizedBox(height: 18),
         Center(
-          child: PhotoPickerAvatar(
-            file: couplePhoto,
-            icon: Icons.favorite_outline,
-            label: 'Add a couple photo',
-            onPicked: onPhotoPicked,
+          child: GlowRing(
+            child: PhotoPickerAvatar(
+              file: couplePhoto,
+              icon: Icons.favorite_outline,
+              label: 'Add a couple photo',
+              onPicked: onPhotoPicked,
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -56,52 +67,60 @@ class PairingCreateStep extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 24),
-        TextField(
-          controller: coupleName,
-          textCapitalization: TextCapitalization.words,
-          maxLength: 24,
-          decoration: const InputDecoration(
-            labelText: 'Name your space (optional)',
-            hintText: 'e.g. Sam & Alex',
-            prefixIcon: Icon(Icons.edit_outlined),
-            counterText: '',
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: busy ? null : onPickStartDate,
-          borderRadius: BorderRadius.circular(24),
-          child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'When did you two start?',
-              prefixIcon: Icon(Icons.calendar_today_outlined),
-            ),
-            child: Text(
-              startDate == null
-                  ? 'Pick your date (optional)'
-                  : DateFormat.yMMMMd().format(startDate!),
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: startDate == null
-                    ? theme.colorScheme.onSurfaceVariant
-                    : null,
+        const SizedBox(height: 20),
+        FrostedForm(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: coupleName,
+                textCapitalization: TextCapitalization.words,
+                maxLength: 24,
+                decoration: const InputDecoration(
+                  labelText: 'Name your space (optional)',
+                  hintText: 'e.g. Sam & Alex',
+                  prefixIcon: Icon(Icons.edit_outlined),
+                  counterText: '',
+                ),
               ),
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-          child: Text(
-            'Starts your days-together counter. You can change it later.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+              const SizedBox(height: 12),
+              InkWell(
+                onTap: busy ? null : onPickStartDate,
+                borderRadius: BorderRadius.circular(24),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'When did you two start?',
+                    prefixIcon: Icon(Icons.calendar_today_outlined),
+                  ),
+                  child: Text(
+                    startDate == null
+                        ? 'Pick your date (optional)'
+                        : DateFormat.yMMMMd().format(startDate!),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: startDate == null
+                          ? theme.colorScheme.onSurfaceVariant
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                child: Text(
+                  'Starts your days-together counter. You can change it later.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         PairingErrorText(error: error),
         const SizedBox(height: 28),
         FilledButton(
           onPressed: busy ? null : onCreate,
+          style: pillButtonStyle(context),
           child: BusyButtonLabel(busy: busy, label: 'Create and get invite'),
         ),
       ],

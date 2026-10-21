@@ -26,6 +26,7 @@ class AvatarOptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
       selected: selected,
       button: true,
@@ -33,8 +34,12 @@ class AvatarOptionTile extends StatelessWidget {
       excludeSemantics: true,
       child: Material(
         color: selected
-            ? scheme.primaryContainer.withValues(alpha: .55)
-            : scheme.surfaceContainerHigh,
+            ? (dark
+                  ? scheme.surface.withValues(alpha: .8)
+                  : Colors.white.withValues(alpha: .95))
+            : Colors.white.withValues(alpha: dark ? .07 : .5),
+        elevation: selected ? 3 : 0,
+        shadowColor: scheme.primary.withValues(alpha: .4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(

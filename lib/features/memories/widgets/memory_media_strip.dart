@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/memories/data/memory_service.dart';
 import 'package:couple_app/features/memories/models/memory.dart';
 
@@ -36,7 +37,7 @@ class MemoryMediaStrip extends StatelessWidget {
         child: Stack(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               child: SizedBox(width: size, height: size, child: child),
             ),
             if (isVideo)
@@ -97,32 +98,51 @@ class MemoryMediaStrip extends StatelessWidget {
             ),
           InkWell(
             onTap: onAdd,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: Container(
               width: size,
               height: size,
+              padding: const EdgeInsets.all(1.5),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: .5),
-                  width: 1.5,
+                borderRadius: BorderRadius.circular(18),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    GradientPreset.sunset.accent(theme.brightness),
+                    GradientPreset.festive.accent(theme.brightness),
+                  ],
                 ),
-                color: theme.colorScheme.primaryContainer.withValues(alpha: .3),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate_outlined,
-                    color: theme.colorScheme.primary,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16.5),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: GradientPreset.sunset.colors(theme.brightness),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Add photos\nor videos',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall,
-                  ),
-                ],
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: GradientPreset.sunset.accent(theme.brightness),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Add photos\nor videos',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: GradientPreset.sunset.foreground(
+                          theme.brightness,
+                        ),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/chat/models/message.dart';
+import 'package:couple_app/features/chat/widgets/chat_chrome.dart';
 
 /// Bottom sheet listing every pinned message.
 ///
@@ -33,37 +34,39 @@ class PinnedMessagesSheet extends StatelessWidget {
             maxHeight: MediaQuery.sizeOf(builderContext).height * .7,
           ),
           child: pinned.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-                  child: Text(
-                    'Nothing pinned yet. Long-press a message and choose '
-                    'Pin to keep it here.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const ChatSheetHeader(),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                      child: Text(
+                        'Nothing pinned yet. Long-press a message and choose '
+                        'Pin to keep it here.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 )
               : ListView(
                   shrinkWrap: true,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                      child: Text(
-                        'Pinned messages',
-                        style: theme.textTheme.titleMedium,
-                      ),
+                    const ChatSheetHeader(
+                      title: 'Pinned messages',
+                      icon: Icons.push_pin,
                     ),
                     for (final m in pinned)
-                      ListTile(
-                        leading: const Icon(Icons.push_pin),
-                        title: Text(
-                          m.previewText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '${nameFor(m.senderId)}'
-                          '${m.sentAt == null ? '' : ' · ${DateFormat.yMMMd().format(m.sentAt!)}'}',
-                        ),
+                      ChatSheetOption(
+                        icon: Icons.push_pin_outlined,
+                        title: m.previewText,
+                        titleMaxLines: 2,
+                        subtitle:
+                            '${nameFor(m.senderId)}'
+                            '${m.sentAt == null ? '' : ' · ${DateFormat.yMMMd().format(m.sentAt!)}'}',
                         trailing: IconButton(
                           tooltip: 'Unpin',
                           icon: const Icon(Icons.close),

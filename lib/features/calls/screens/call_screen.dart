@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/services/voice_playback.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/data/agora_service.dart';
 import 'package:couple_app/features/calls/data/call_service.dart';
@@ -273,7 +274,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 channelName: widget.session.channelName,
               )
             else
-              CallAvatarBackdrop(name: partnerName),
+              CallAvatarBackdrop(name: partnerName, pulse: !connected),
 
             if (isVideo && _hasJoined && !_agora.cameraOff)
               Positioned(
@@ -290,20 +291,60 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               right: 0,
               child: Column(
                 children: [
-                  Text(
-                    partnerName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w600,
+                  Padding(
+                    // Clear of the local preview in the corner.
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isVideo && _hasJoined ? 132 : 24,
+                    ),
+                    child: Text(
+                      partnerName,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        shadows: [
+                          Shadow(color: Color(0x66000000), blurRadius: 12),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _statusLabel,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: .7),
-                      fontSize: 15,
+                  const SizedBox(height: 10),
+                  GlassPanel(
+                    dark: true,
+                    radius: 30,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _error != null
+                                ? const Color(0xFFFF8A8A)
+                                : connected
+                                ? const Color(0xFF6EE7A0)
+                                : const Color(0xFFFFC27A),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _statusLabel,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .92),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (_error != null) ...[
@@ -314,7 +355,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         _error!,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          color: Color(0xFFFF9B9B),
+                          color: Color(0xFFFFB4B4),
                           fontSize: 14,
                         ),
                       ),

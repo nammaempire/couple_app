@@ -88,15 +88,27 @@ class _MessageBubbleState extends State<MessageBubble> {
     final isMine = widget.isMine;
     final palette = ChatPalette.of(context);
 
-    final bg = isMine ? theme.colorScheme.primary : palette.theirsBubble;
-    final fg = isMine ? theme.colorScheme.onPrimary : palette.onTheirsBubble;
-
-    final radius = BorderRadius.only(
-      topLeft: const Radius.circular(20),
-      topRight: const Radius.circular(20),
-      bottomLeft: Radius.circular(isMine ? 20 : 4),
-      bottomRight: Radius.circular(isMine ? 4 : 20),
+    final fg = isMine ? palette.onMine : palette.onTheirsBubble;
+    final bubbleDecoration = BoxDecoration(
+      gradient: ChatPalette.diagonal(
+        isMine ? palette.mineGradient : palette.theirsGradient,
+      ),
+      borderRadius: _radius(isMine),
+      border: isMine ? null : Border.all(color: palette.theirsBorder),
+      boxShadow: [
+        BoxShadow(
+          color: isMine
+              ? palette.glow
+              : Colors.black.withValues(
+                  alpha: theme.brightness == Brightness.dark ? .18 : .05,
+                ),
+          blurRadius: isMine ? 12 : 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
     );
+
+    final radius = _radius(isMine);
 
     final quote = message.replyTo == null
         ? null
@@ -145,8 +157,9 @@ class _MessageBubbleState extends State<MessageBubble> {
                 constraints: BoxConstraints(maxWidth: stickerWidth),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: palette.theirsBubble,
-                    borderRadius: BorderRadius.circular(12),
+                    gradient: ChatPalette.diagonal(palette.theirsGradient),
+                    border: Border.all(color: palette.theirsBorder),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: ReplyQuote(
                     reply: message.replyTo!,
@@ -181,6 +194,11 @@ class _MessageBubbleState extends State<MessageBubble> {
       case MessageType.voice:
       case MessageType.text:
       case MessageType.call:
+      // System lines are drawn by SystemMessageLine; as a bubble they fall
+      // back to their text.
+      case MessageType.chatCleared:
+      case MessageType.screenshot:
+      case MessageType.screenshotBlock:
         content = Container(
           padding: EdgeInsets.fromLTRB(
             message.type == MessageType.voice ? 8 : 16,
@@ -188,7 +206,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             message.type == MessageType.voice ? 12 : 16,
             8,
           ),
-          decoration: BoxDecoration(color: bg, borderRadius: radius),
+          decoration: bubbleDecoration,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
@@ -202,14 +220,14 @@ class _MessageBubbleState extends State<MessageBubble> {
                   widthFactor: 1,
                   child: Text(
                     message.text,
-                    style: TextStyle(color: fg, fontSize: 16),
+                    style: TextStyle(color: fg, fontSize: 16, height: 1.3),
                   ),
                 ),
               const SizedBox(height: 2),
               MessageMetaRow(
                 message: message,
                 isMine: isMine,
-                color: fg.withValues(alpha: .7),
+                color: fg.withValues(alpha: .78),
               ),
             ],
           ),
@@ -296,6 +314,15 @@ class _MessageBubbleState extends State<MessageBubble> {
     );
   }
 }
+
+/// Rounded all round except the corner nearest the sender, which forms the
+/// tail.
+BorderRadius _radius(bool isMine) => BorderRadius.only(
+  topLeft: const Radius.circular(22),
+  topRight: const Radius.circular(22),
+  bottomLeft: Radius.circular(isMine ? 22 : 6),
+  bottomRight: Radius.circular(isMine ? 6 : 22),
+);
 
 class _PinMark extends StatelessWidget {
   const _PinMark();

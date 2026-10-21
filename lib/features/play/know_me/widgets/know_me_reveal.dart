@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+
+import 'package:couple_app/features/music/widgets/on_gradient_theme.dart';
 import 'package:couple_app/features/play/know_me/know_me_logic.dart';
 import 'package:couple_app/features/play/know_me/know_me_question.dart';
+import 'package:couple_app/features/play/widgets/play_look.dart';
 
 /// The result, for both players: the score, a verdict, and every answer
 /// next to its guess.
@@ -31,6 +38,12 @@ class KnowMeReveal extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final verdict = KnowMeLogic.verdict(score, total);
+    final b = theme.brightness;
+    final dark = b == Brightness.dark;
+    final preset = total > 0 && score * 2 >= total
+        ? GradientPreset.gold
+        : GradientPreset.lavender;
+    final fg = preset.foreground(b);
     final summary = iAmSubject
         ? '$partnerName guessed $score of your $total answers'
         : 'You guessed $score of $partnerName\'s $total answers';
@@ -38,63 +51,98 @@ class KnowMeReveal extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       children: [
-        Card(
-          margin: EdgeInsets.zero,
-          color: theme.colorScheme.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            child: Column(
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.4, end: 1),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.elasticOut,
-                  builder: (context, scale, child) =>
-                      Transform.scale(scale: scale, child: child),
-                  child: Text(
-                    verdict.emoji,
-                    style: const TextStyle(fontSize: 52),
-                  ),
+        AnimatedGradientCard(
+          preset: preset,
+          radius: 28,
+          glow: preset.accent(b),
+          padding: EdgeInsets.zero,
+          border: Border.all(
+            color: Colors.white.withValues(alpha: dark ? .16 : .8),
+            width: 1.5,
+          ),
+          child: Stack(
+            children: [
+              const Positioned.fill(
+                child: FloatingHearts(
+                  style: ParticleStyle.confetti,
+                  count: 12,
+                  opacity: .45,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '$score / $total',
-                  style: theme.textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
+              ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 24,
+                  horizontal: 16,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  verdict.title,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
+                child: Column(
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.4, end: 1),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.elasticOut,
+                      builder: (context, scale, child) =>
+                          Transform.scale(scale: scale, child: child),
+                      child: Container(
+                        width: 84,
+                        height: 84,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(
+                            alpha: dark ? .14 : .75,
+                          ),
+                        ),
+                        child: Text(
+                          verdict.emoji,
+                          style: const TextStyle(fontSize: 48),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$score / $total',
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: OnGradientTheme.ink(preset, b),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      verdict.title,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: fg,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      summary,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: preset.foregroundMuted(b),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  summary,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
         for (var i = 0; i < questions.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _AnswerCard(
-              question: questions[i],
-              answer: i < answers.length ? answers[i] : null,
-              guess: i < guesses.length ? guesses[i] : null,
-              iAmSubject: iAmSubject,
-              partnerName: partnerName,
+          EntranceAnimation(
+            index: i + 1,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _AnswerCard(
+                question: questions[i],
+                answer: i < answers.length ? answers[i] : null,
+                guess: i < guesses.length ? guesses[i] : null,
+                iAmSubject: iAmSubject,
+                partnerName: partnerName,
+              ),
             ),
           ),
       ],
@@ -131,6 +179,18 @@ class _AnswerCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
+      elevation: 0,
+      color: PlayLook.panel(context, light: .72),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(
+          color: right
+              ? scheme.primary.withValues(alpha: .35)
+              : Colors.white.withValues(
+                  alpha: theme.brightness == Brightness.dark ? .14 : .8,
+                ),
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -140,9 +200,7 @@ class _AnswerCard extends StatelessWidget {
               label: right ? 'Correct' : 'Missed',
               child: CircleAvatar(
                 radius: 14,
-                backgroundColor: right
-                    ? scheme.primary
-                    : scheme.surfaceContainerHighest,
+                backgroundColor: right ? scheme.primary : scheme.errorContainer,
                 // Icons rather than ✓/✗ text, which some fonts lack.
                 child: Icon(
                   right ? Icons.check_rounded : Icons.close_rounded,

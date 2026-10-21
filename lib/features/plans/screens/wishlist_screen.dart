@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
@@ -12,6 +14,7 @@ import 'package:couple_app/features/plans/models/wishlist_claim.dart';
 import 'package:couple_app/features/plans/models/wishlist_item.dart';
 import 'package:couple_app/features/plans/providers/wishlist_providers.dart';
 import 'package:couple_app/features/plans/screens/wishlist_item_editor_screen.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 import 'package:couple_app/features/plans/widgets/wishlist_item_card.dart';
 import 'package:couple_app/features/plans/widgets/wishlist_partner_item_card.dart';
 import 'package:couple_app/features/plans/widgets/wishlist_secret_banner.dart';
@@ -64,10 +67,11 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen>
 
   Future<void> _openLink(String url) async {
     try {
-      final ok = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
+      final ok = await ref
+          .read(appLockControllerProvider.notifier)
+          .suspendWhile(
+            launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+          );
       if (!ok && mounted) context.showSnackMessage('Could not open the link.');
     } catch (_) {
       if (mounted) context.showSnackMessage('Could not open the link.');
@@ -218,12 +222,13 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen>
   ) {
     final mine = WishlistItem.sorted(all.where((i) => i.createdBy == _myUid));
     if (mine.isEmpty) {
-      return EmptyState(
-        icon: Icons.card_giftcard,
+      return GradientEmptyState(
+        emoji: '🎁',
+        preset: GradientPreset.blush,
+        scrollable: true,
         text:
             'Nothing on your wishlist yet.\n'
             'Add things you\'d love, so $partnerName always has ideas.',
-        padding: const EdgeInsets.all(32),
       );
     }
     final wanted = mine.where((i) => !i.received).toList();
@@ -239,7 +244,7 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen>
     return ListView(
       padding: const EdgeInsets.only(top: 8, bottom: 96),
       children: [
-        ...wanted.map(card),
+        ...staggered(wanted.map(card)),
         if (received.isNotEmpty) ...[
           const _SectionTitle('Received'),
           ...received.map(card),
@@ -258,13 +263,14 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen>
       all.where((i) => i.createdBy.isNotEmpty && i.createdBy != _myUid),
     );
     if (theirs.isEmpty) {
-      return EmptyState(
-        icon: Icons.redeem_outlined,
+      return GradientEmptyState(
+        emoji: hasPartner ? '💌' : '🤝',
+        preset: GradientPreset.lavender,
+        scrollable: true,
         text: hasPartner
             ? '$partnerName hasn\'t added any wishes yet.\n'
                   'Maybe drop a hint?'
             : 'Once your partner joins, their wishes will show up here.',
-        padding: const EdgeInsets.all(32),
       );
     }
 
@@ -291,7 +297,7 @@ class _WishlistScreenState extends ConsumerState<WishlistScreen>
       padding: const EdgeInsets.only(bottom: 32),
       children: [
         WishlistSecretBanner(partnerName: partnerName),
-        ...wanted.map(card),
+        ...staggered(wanted.map(card), start: 1),
         if (received.isNotEmpty) ...[
           _SectionTitle('$partnerName already has'),
           ...received.map(card),
@@ -307,17 +313,8 @@ class _SectionTitle extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-      child: Text(
-        label,
-        style: theme.textTheme.titleSmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SoftSectionHeader(
+    label: label,
+    color: Theme.of(context).colorScheme.onSurfaceVariant,
+  );
 }

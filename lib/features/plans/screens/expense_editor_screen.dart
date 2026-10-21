@@ -13,6 +13,8 @@ import 'package:couple_app/features/plans/models/expense.dart';
 import 'package:couple_app/features/plans/models/expense_math.dart';
 import 'package:couple_app/features/plans/providers/expense_providers.dart';
 import 'package:couple_app/features/plans/widgets/expense_split_preview.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/expense_tile.dart';
 
 /// Which custom share was filled in automatically from the other one.
 enum _AutoShare { mine, theirs }
@@ -330,6 +332,12 @@ class _ExpenseEditorScreenState extends ConsumerState<ExpenseEditorScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         children: [
+          if (_original == null)
+            EditorHeaderStrip(
+              emoji: _category.emoji,
+              preset: ExpenseLook.presetFor(_category),
+              text: 'We\'ll keep the maths, you keep the memories.',
+            ),
           TextFormField(
             controller: _amount,
             autofocus: _original == null,
@@ -537,16 +545,5 @@ class _SectionLabel extends StatelessWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 8),
-      child: Text(
-        text,
-        style: theme.textTheme.labelLarge?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SoftFieldLabel(text);
 }

@@ -2,6 +2,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+import 'package:couple_app/features/music/widgets/on_gradient_theme.dart';
 import 'package:couple_app/features/play/truth_or_dare/truth_or_dare_cards.dart';
 
 /// The big card in the middle of the table. Shows its back while nothing
@@ -46,33 +51,60 @@ class TruthOrDareCardView extends StatelessWidget {
 }
 
 class _CardShell extends StatelessWidget {
-  const _CardShell({required this.color, required this.child});
+  const _CardShell({required this.preset, required this.child, this.particles});
 
-  final Color color;
+  final GradientPreset preset;
+  final ParticleStyle? particles;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final b = Theme.of(context).brightness;
+    final particles = this.particles;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 340, minHeight: 200),
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+        child: AnimatedGradientCard(
+          preset: preset,
+          radius: 28,
+          padding: EdgeInsets.zero,
+          border: Border.all(
+            color: Colors.white.withValues(
+              alpha: preset.isDarkIn(b) ? .16 : .75,
             ),
-          ],
+            width: 1.5,
+          ),
+          child: Stack(
+            children: [
+              if (particles != null)
+                Positioned.fill(
+                  child: FloatingHearts(
+                    style: particles,
+                    count: particles == ParticleStyle.stars ? 24 : 9,
+                    opacity: particles == ParticleStyle.stars ? .8 : .45,
+                    color: particles == ParticleStyle.stars
+                        ? const Color(0xFFFFF1C2)
+                        : Colors.white,
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: child,
+              ),
+            ],
+          ),
         ),
-        child: child,
       ),
     );
   }
+}
+
+/// The card back's and faces' gradients.
+abstract final class TruthOrDareLook {
+  static const back = GradientPreset.night;
+  static const truth = GradientPreset.ocean;
+  static const dare = GradientPreset.festive;
 }
 
 class _CardBack extends StatelessWidget {
@@ -80,20 +112,27 @@ class _CardBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    const preset = TruthOrDareLook.back;
+    final b = Theme.of(context).brightness;
     return _CardShell(
-      color: scheme.primary,
+      preset: preset,
+      particles: ParticleStyle.stars,
       child: SizedBox(
         height: 160,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('💌', style: TextStyle(fontSize: 52)),
+            const Bobbing(
+              amplitude: 4,
+              tilt: .05,
+              child: Text('💌', style: TextStyle(fontSize: 52)),
+            ),
             const SizedBox(height: 8),
             Text(
               'Truth or dare?',
+              textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: scheme.onPrimary,
+                color: preset.foreground(b),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -112,26 +151,44 @@ class _CardFront extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    final b = theme.brightness;
     final isTruth = card.kind == TruthOrDareKind.truth;
-    final bg = isTruth ? scheme.primaryContainer : scheme.tertiaryContainer;
-    final fg = isTruth ? scheme.onPrimaryContainer : scheme.onTertiaryContainer;
+    final preset = isTruth ? TruthOrDareLook.truth : TruthOrDareLook.dare;
+    final fg = preset.foreground(b);
+    final accent = OnGradientTheme.ink(preset, b);
     return _CardShell(
-      color: bg,
+      preset: preset,
+      particles: isTruth ? null : ParticleStyle.hearts,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(isTruth ? '💬' : '✨', style: const TextStyle(fontSize: 22)),
-              const SizedBox(width: 8),
-              Text(
-                card.kind.label.toUpperCase(),
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: fg,
-                  letterSpacing: 1.4,
-                  fontWeight: FontWeight.w700,
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(
+                    alpha: preset.isDarkIn(b) ? .14 : .7,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  isTruth ? '💬' : '✨',
+                  style: const TextStyle(fontSize: 20),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  card.kind.label.toUpperCase(),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: accent,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
@@ -141,7 +198,7 @@ class _CardFront extends StatelessWidget {
             card.text,
             style: theme.textTheme.headlineSmall?.copyWith(
               color: fg,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               height: 1.25,
             ),
           ),

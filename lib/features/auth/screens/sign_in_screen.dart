@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/data/auth_service.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/widgets/google_mark.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key, this.initialSignUp = false, this.onBack});
@@ -131,176 +133,217 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    final preset = _isSignUp ? GradientPreset.blush : GradientPreset.lavender;
+    final link = TextButton.styleFrom(
+      foregroundColor: dark ? scheme.primary : preset.ink,
+      textStyle: theme.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+      ),
+    );
 
-    return Scaffold(
-      appBar: widget.onBack == null
-          ? null
-          : AppBar(
-              backgroundColor: Colors.transparent,
-              leading: BackButton(onPressed: _busy ? null : widget.onBack),
-            ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Icon(
-                      Icons.favorite,
-                      size: 56,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      _isSignUp ? 'Create your account' : 'Welcome back',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'A private space for the two of you.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _signInWithGoogle,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+    return RomanceBackdrop(
+      preset: _isSignUp ? GradientPreset.sunset : GradientPreset.lavender,
+      hearts: true,
+      heartCount: 8,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: widget.onBack == null
+            ? null
+            : romanceAppBar(
+                leading: BackButton(onPressed: _busy ? null : widget.onBack),
+              ),
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: GlowBadge(
+                          preset: preset,
+                          icon: _isSignUp
+                              ? Icons.favorite_rounded
+                              : Icons.waving_hand_rounded,
+                          size: 72,
                         ),
                       ),
-                      icon: const GoogleMark(),
-                      label: const Text('Continue with Google'),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        const Expanded(child: Divider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text(
-                            'or use email',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        const Expanded(child: Divider()),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    if (_isSignUp) ...[
-                      TextFormField(
-                        controller: _name,
-                        textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          labelText: 'Your name',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Please enter your name'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-
-                    TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.mail_outline),
-                      ),
-                      validator: (v) {
-                        final value = v?.trim() ?? '';
-                        if (value.isEmpty) return 'Please enter your email';
-                        if (!value.contains('@') || !value.contains('.')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextFormField(
-                      controller: _password,
-                      obscureText: _obscure,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'At least 6 characters'
-                          : null,
-                    ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 18),
                       Text(
-                        _error!,
+                        _isSignUp ? 'Create your account' : 'Welcome back',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: theme.colorScheme.error),
+                        style: romanceSerif(theme.textTheme.headlineMedium)
+                            .copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FontStyle.italic,
+                              color: dark
+                                  ? scheme.onSurface
+                                  : const Color(0xFF3B1424),
+                            ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'A private space for the two of you.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      FrostedForm(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _busy ? null : _signInWithGoogle,
+                              style: pillOutlineStyle(context, preset: preset)
+                                  .copyWith(
+                                    foregroundColor: WidgetStatePropertyAll(
+                                      scheme.onSurface,
+                                    ),
+                                  ),
+                              icon: const GoogleMark(),
+                              label: const Text('Continue with Google'),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                const Expanded(child: Divider()),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Text(
+                                    'or use email',
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                ),
+                                const Expanded(child: Divider()),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+
+                            if (_isSignUp) ...[
+                              TextFormField(
+                                controller: _name,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: const InputDecoration(
+                                  labelText: 'Your name',
+                                  prefixIcon: Icon(Icons.person_outline),
+                                ),
+                                validator: (v) =>
+                                    (v == null || v.trim().isEmpty)
+                                    ? 'Please enter your name'
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            TextFormField(
+                              controller: _email,
+                              keyboardType: TextInputType.emailAddress,
+                              autocorrect: false,
+                              decoration: const InputDecoration(
+                                labelText: 'Email',
+                                prefixIcon: Icon(Icons.mail_outline),
+                              ),
+                              validator: (v) {
+                                final value = v?.trim() ?? '';
+                                if (value.isEmpty) {
+                                  return 'Please enter your email';
+                                }
+                                if (!value.contains('@') ||
+                                    !value.contains('.')) {
+                                  return 'Please enter a valid email';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            TextFormField(
+                              controller: _password,
+                              obscureText: _obscure,
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon: const Icon(Icons.lock_outline),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscure
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                  ),
+                                  onPressed: () =>
+                                      setState(() => _obscure = !_obscure),
+                                ),
+                              ),
+                              validator: (v) => (v == null || v.length < 6)
+                                  ? 'At least 6 characters'
+                                  : null,
+                            ),
+
+                            if (_error != null) ...[
+                              const SizedBox(height: 16),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: scheme.error),
+                              ),
+                            ],
+
+                            const SizedBox(height: 20),
+                            FilledButton(
+                              onPressed: _busy ? null : _submit,
+                              style: pillButtonStyle(context, preset: preset),
+                              child: _busy
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text(
+                                      _isSignUp ? 'Create account' : 'Sign in',
+                                    ),
+                            ),
+                            if (!_isSignUp) ...[
+                              const SizedBox(height: 4),
+                              TextButton(
+                                onPressed: _busy ? null : _resetPassword,
+                                style: link,
+                                child: const Text('Forgot password?'),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _isSignUp = !_isSignUp;
+                                _error = null;
+                              }),
+                        style: link,
+                        child: Text(
+                          _isSignUp
+                              ? 'Already have an account? Sign in'
+                              : 'New here? Create an account',
+                        ),
                       ),
                     ],
-
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _busy ? null : _submit,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(_isSignUp ? 'Create account' : 'Sign in'),
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (!_isSignUp)
-                      TextButton(
-                        onPressed: _busy ? null : _resetPassword,
-                        child: const Text('Forgot password?'),
-                      ),
-
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(() {
-                              _isSignUp = !_isSignUp;
-                              _error = null;
-                            }),
-                      child: Text(
-                        _isSignUp
-                            ? 'Already have an account? Sign in'
-                            : 'New here? Create an account',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

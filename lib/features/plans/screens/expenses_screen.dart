@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
@@ -15,6 +16,7 @@ import 'package:couple_app/features/plans/widgets/expense_category_breakdown.dar
 import 'package:couple_app/features/plans/widgets/expense_currency_dialog.dart';
 import 'package:couple_app/features/plans/widgets/expense_month_header.dart';
 import 'package:couple_app/features/plans/widgets/expense_tile.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Shared expenses: who owes whom, settling up, and where the money went.
 class ExpensesScreen extends ConsumerStatefulWidget {
@@ -233,19 +235,21 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       );
     }
     if (partnerUid == null) {
-      return const EmptyState(
-        icon: Icons.group_add_outlined,
+      return const GradientEmptyState(
+        emoji: '🤝',
+        preset: GradientPreset.lavender,
+        scrollable: true,
         text: 'Shared expenses start once your partner joins.',
-        padding: EdgeInsets.all(32),
       );
     }
     if (all.isEmpty) {
-      return const EmptyState(
-        icon: Icons.account_balance_wallet_outlined,
+      return const GradientEmptyState(
+        emoji: '💸',
+        preset: GradientPreset.mint,
+        scrollable: true,
         text:
             'No shared expenses yet.\nAdd one and we\'ll keep track of who '
             'owes whom.',
-        padding: EdgeInsets.all(32),
       );
     }
 
@@ -299,19 +303,23 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             itemCount: month.items.length,
             itemBuilder: (context, i) {
               final e = month.items[i];
-              return ExpenseTile(
-                expense: e,
-                myUid: _myUid,
-                partnerUid: partnerUid,
-                partnerName: partnerName,
-                currency: currency,
-                // Settlements can't be edited; only whoever recorded one may
-                // remove it.
-                onTap: !e.isSettlement
-                    ? () => _openEditor(e)
-                    : e.createdBy == _myUid
-                    ? () => _confirmDeleteSettlement(e, partnerName, currency)
-                    : null,
+              return stagger(
+                i,
+                key: ValueKey(e.id),
+                ExpenseTile(
+                  expense: e,
+                  myUid: _myUid,
+                  partnerUid: partnerUid,
+                  partnerName: partnerName,
+                  currency: currency,
+                  // Settlements can't be edited; only whoever recorded one may
+                  // remove it.
+                  onTap: !e.isSettlement
+                      ? () => _openEditor(e)
+                      : e.createdBy == _myUid
+                      ? () => _confirmDeleteSettlement(e, partnerName, currency)
+                      : null,
+                ),
               );
             },
           ),

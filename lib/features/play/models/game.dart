@@ -11,7 +11,14 @@ enum GameType {
   ),
   truthOrDare('truthOrDare', 'Truth or Dare', '🎲', Icons.casino_outlined),
   ticTacToe('ticTacToe', 'Tic-tac-toe', '⭕', Icons.grid_3x3),
-  connectFour('connectFour', 'Connect Four', '🔴', Icons.view_column_outlined);
+  connectFour('connectFour', 'Connect Four', '🔴', Icons.view_column_outlined),
+  ludo('ludo', 'Ludo', '🏠', Icons.grid_view_rounded),
+  snakesLadders(
+    'snakesLadders',
+    'Snakes & Ladders',
+    '🐍',
+    Icons.stairs_outlined,
+  );
 
   const GameType(this.id, this.label, this.emoji, this.icon);
   final String id;

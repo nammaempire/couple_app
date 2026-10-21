@@ -72,7 +72,9 @@ class _PlayerChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
     final highlighted = active || won;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
@@ -80,13 +82,25 @@ class _PlayerChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: highlighted
-            ? scheme.primaryContainer
-            : scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(16),
+            ? (dark
+                  ? scheme.surface.withValues(alpha: .85)
+                  : Colors.white.withValues(alpha: .92))
+            : Colors.white.withValues(alpha: dark ? .08 : .4),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: highlighted ? scheme.primary : Colors.transparent,
+          color: highlighted
+              ? scheme.primary
+              : Colors.white.withValues(alpha: dark ? .16 : .7),
           width: 1.5,
         ),
+        boxShadow: [
+          if (highlighted)
+            BoxShadow(
+              color: scheme.primary.withValues(alpha: .22),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -100,9 +114,7 @@ class _PlayerChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
                 fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
-                color: highlighted
-                    ? scheme.onPrimaryContainer
-                    : scheme.onSurfaceVariant,
+                color: highlighted ? scheme.onSurface : scheme.onSurfaceVariant,
               ),
             ),
           ),

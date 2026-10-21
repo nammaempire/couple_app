@@ -7,11 +7,13 @@ import 'package:intl/intl.dart';
 import 'package:couple_app/core/providers/core_providers.dart';
 import 'package:couple_app/core/services/storage_service.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/core/widgets/photo_picker_avatar.dart';
 import 'package:couple_app/features/auth/data/auth_service.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/onboarding/widgets/onboarding_progress.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 
 /// Onboarding step 1: name, photo, birthday and an optional nickname.
 class ProfileSetupScreen extends ConsumerStatefulWidget {
@@ -138,111 +140,135 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: const Text('About you'),
-        actions: [
-          TextButton(
-            onPressed: _busy ? null : _auth.signOut,
-            child: const Text('Sign out'),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const OnboardingProgress(step: OnboardingStep.profile),
-                    const SizedBox(height: 28),
-                    Center(
-                      child: PhotoPickerAvatar(
-                        file: _photo,
-                        imageUrl: widget.profile?.photoUrl,
-                        label: 'Add your photo',
-                        onPicked: (file) => setState(() => _photo = file),
+    return RomanceBackdrop(
+      preset: GradientPreset.peach,
+      strength: .6,
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: romanceAppBar(
+          title: const Text('About you'),
+          actions: [
+            TextButton(
+              onPressed: _busy ? null : _auth.signOut,
+              child: const Text('Sign out'),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const OnboardingProgress(step: OnboardingStep.profile),
+                      const SizedBox(height: 22),
+                      Text(
+                        'Let them see you',
+                        textAlign: TextAlign.center,
+                        style: romanceSerif(theme.textTheme.headlineSmall)
+                            .copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontStyle: FontStyle.italic,
+                            ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Your partner will see this.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      const SizedBox(height: 18),
+                      Center(
+                        child: GlowRing(
+                          child: PhotoPickerAvatar(
+                            file: _photo,
+                            imageUrl: widget.profile?.photoUrl,
+                            label: 'Add your photo',
+                            onPicked: (file) => setState(() => _photo = file),
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    TextFormField(
-                      controller: _name,
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 40,
-                      decoration: const InputDecoration(
-                        labelText: 'Your name',
-                        prefixIcon: Icon(Icons.person_outline),
-                        counterText: '',
-                      ),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Please enter your name'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-
-                    TextFormField(
-                      controller: _nickname,
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 24,
-                      decoration: const InputDecoration(
-                        labelText: 'Nickname (optional)',
-                        prefixIcon: Icon(Icons.tag_faces_outlined),
-                        counterText: '',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    _BirthdayField(
-                      birthday: _birthday,
-                      onTap: _busy ? null : _pickBirthday,
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      child: Text(
-                        'Used for birthday reminders. You can skip this.',
+                      const SizedBox(height: 10),
+                      Text(
+                        'Your partner will see this.',
+                        textAlign: TextAlign.center,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 22),
+                      FrostedForm(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            TextFormField(
+                              controller: _name,
+                              textCapitalization: TextCapitalization.words,
+                              maxLength: 40,
+                              decoration: const InputDecoration(
+                                labelText: 'Your name',
+                                prefixIcon: Icon(Icons.person_outline),
+                                counterText: '',
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Please enter your name'
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
 
-                    if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: theme.colorScheme.error),
+                            TextFormField(
+                              controller: _nickname,
+                              textCapitalization: TextCapitalization.words,
+                              maxLength: 24,
+                              decoration: const InputDecoration(
+                                labelText: 'Nickname (optional)',
+                                prefixIcon: Icon(Icons.tag_faces_outlined),
+                                counterText: '',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            _BirthdayField(
+                              birthday: _birthday,
+                              onTap: _busy ? null : _pickBirthday,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                              child: Text(
+                                'Used for birthday reminders. You can skip this.',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                      ],
+
+                      const SizedBox(height: 28),
+                      FilledButton(
+                        onPressed: _busy ? null : _continue,
+                        style: pillButtonStyle(context),
+                        child: _busy
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Continue'),
                       ),
                     ],
-
-                    const SizedBox(height: 28),
-                    FilledButton(
-                      onPressed: _busy ? null : _continue,
-                      child: _busy
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Continue'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

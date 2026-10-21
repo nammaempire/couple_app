@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/chat/data/chat_look_service.dart';
 import 'package:couple_app/features/chat/models/chat_look.dart';
@@ -226,11 +227,15 @@ class _ChatAppearanceScreenState extends ConsumerState<ChatAppearanceScreen> {
   Future<void> _pickFromGallery() async {
     final XFile? picked;
     try {
-      picked = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 82,
-      );
+      picked = await ref
+          .read(appLockControllerProvider.notifier)
+          .suspendWhile(
+            _picker.pickImage(
+              source: ImageSource.gallery,
+              maxWidth: 1600,
+              imageQuality: 82,
+            ),
+          );
     } catch (_) {
       if (!mounted) return;
       context.showSnackMessage('Could not open your photos.');

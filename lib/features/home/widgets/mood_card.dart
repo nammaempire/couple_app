@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+
 import 'package:couple_app/features/home/models/mood.dart';
 import 'package:couple_app/features/home/widgets/mood_picker_sheet.dart';
 
@@ -26,13 +29,8 @@ class MoodCard extends StatelessWidget {
     final mine = moods[myUid];
     final theirs = partnerUid == null ? null : moods[partnerUid];
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .5),
-        borderRadius: BorderRadius.circular(24),
-      ),
+    return AnimatedGradientCard(
+      preset: GradientPreset.mint,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -102,8 +100,11 @@ class _MoodSlot extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         decoration: BoxDecoration(
           color: mood == null
-              ? theme.colorScheme.surface
-              : mood.color.withValues(alpha: isStale ? .12 : .28),
+              ? theme.colorScheme.surface.withValues(alpha: .7)
+              : Color.alphaBlend(
+                  mood.color.withValues(alpha: isStale ? .12 : .28),
+                  theme.colorScheme.surface.withValues(alpha: .55),
+                ),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(

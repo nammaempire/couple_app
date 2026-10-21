@@ -11,7 +11,9 @@ import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/data/couple_service.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/onboarding/screens/qr_scan_screen.dart';
+import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_choose_step.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_confirm_step.dart';
 import 'package:couple_app/features/onboarding/widgets/pairing_create_step.dart';
@@ -171,75 +173,79 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           _go(_mode == _Mode.confirm ? _Mode.join : _Mode.choose);
         }
       },
-      child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          leading: canGoBack
-              ? BackButton(
-                  onPressed: _busy
-                      ? null
-                      : () => _go(
-                          _mode == _Mode.confirm ? _Mode.join : _Mode.choose,
+      child: RomanceBackdrop(
+        preset: GradientPreset.festive,
+        strength: .55,
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: romanceAppBar(
+            leading: canGoBack
+                ? BackButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _go(
+                            _mode == _Mode.confirm ? _Mode.join : _Mode.choose,
+                          ),
+                  )
+                : null,
+            title: Text(switch (_mode) {
+              _Mode.choose => 'Connect',
+              _Mode.create => 'Create your space',
+              _Mode.join => 'Join your partner',
+              _Mode.confirm => 'Accept invite',
+            }),
+            actions: [
+              if (!canGoBack)
+                TextButton(
+                  onPressed: _busy ? null : _auth.signOut,
+                  child: const Text('Sign out'),
+                ),
+            ],
+          ),
+          body: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: KeyedSubtree(
+                      key: ValueKey(_mode),
+                      child: switch (_mode) {
+                        _Mode.choose => PairingChooseStep(
+                          notice: widget.notice,
+                          onCreate: () => _go(_Mode.create),
+                          onJoin: () => _go(_Mode.join),
                         ),
-                )
-              : null,
-          title: Text(switch (_mode) {
-            _Mode.choose => 'Connect',
-            _Mode.create => 'Create your space',
-            _Mode.join => 'Join your partner',
-            _Mode.confirm => 'Accept invite',
-          }),
-          actions: [
-            if (!canGoBack)
-              TextButton(
-                onPressed: _busy ? null : _auth.signOut,
-                child: const Text('Sign out'),
-              ),
-          ],
-        ),
-        body: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  child: KeyedSubtree(
-                    key: ValueKey(_mode),
-                    child: switch (_mode) {
-                      _Mode.choose => PairingChooseStep(
-                        notice: widget.notice,
-                        onCreate: () => _go(_Mode.create),
-                        onJoin: () => _go(_Mode.join),
-                      ),
-                      _Mode.create => PairingCreateStep(
-                        couplePhoto: _couplePhoto,
-                        onPhotoPicked: (file) =>
-                            setState(() => _couplePhoto = file),
-                        coupleName: _coupleName,
-                        startDate: _startDate,
-                        onPickStartDate: _pickStartDate,
-                        busy: _busy,
-                        error: _error,
-                        onCreate: _create,
-                      ),
-                      _Mode.join => PairingJoinStep(
-                        code: _code,
-                        busy: _busy,
-                        error: _error,
-                        onSubmit: _findInvite,
-                        onScan: _scan,
-                      ),
-                      _Mode.confirm => PairingConfirmStep(
-                        invite: _invite!,
-                        busy: _busy,
-                        error: _error,
-                        onAccept: _accept,
-                        onUseAnotherCode: () => _go(_Mode.join),
-                      ),
-                    },
+                        _Mode.create => PairingCreateStep(
+                          couplePhoto: _couplePhoto,
+                          onPhotoPicked: (file) =>
+                              setState(() => _couplePhoto = file),
+                          coupleName: _coupleName,
+                          startDate: _startDate,
+                          onPickStartDate: _pickStartDate,
+                          busy: _busy,
+                          error: _error,
+                          onCreate: _create,
+                        ),
+                        _Mode.join => PairingJoinStep(
+                          code: _code,
+                          busy: _busy,
+                          error: _error,
+                          onSubmit: _findInvite,
+                          onScan: _scan,
+                        ),
+                        _Mode.confirm => PairingConfirmStep(
+                          invite: _invite!,
+                          busy: _busy,
+                          error: _error,
+                          onAccept: _accept,
+                          onUseAnotherCode: () => _go(_Mode.join),
+                        ),
+                      },
+                    ),
                   ),
                 ),
               ),

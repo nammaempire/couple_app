@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/together/models/love_note.dart';
@@ -80,66 +81,104 @@ class _LoveNotesScreenState extends ConsumerState<LoveNotesScreen> {
             .where((n) => n.kind == NoteKind.letter && n.isDelivered(now))
             .toList();
 
+        final forYou = letters.length + envelopes.length;
+        final unopened = [
+          ...letters,
+          ...envelopes,
+        ].where((n) => !n.isOpened).length;
+        final heroLine = [
+          if (forYou > 0)
+            '$forYou ${forYou == 1 ? 'note' : 'notes'} for you'
+          else
+            'Nothing new for you yet',
+          if (waiting.isNotEmpty) '${waiting.length} on its way',
+        ].join(' · ');
+
+        var i = 0;
+        Widget enter(Widget child) =>
+            EntranceAnimation(index: i++, child: child);
+
         return Scaffold(
-          floatingActionButton: FloatingActionButton.extended(
-            heroTag: 'write-note',
-            onPressed: _compose,
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Write a note'),
-          ),
           body: !snapshot.hasData && !snapshot.hasError
               ? const Center(child: CircularProgressIndicator())
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
                   children: [
                     if (notes.isEmpty)
-                      LoveNotesIntro(
-                        partnerName: partnerName,
-                        onTemplate: (t) => _compose(template: t),
+                      enter(
+                        LoveNotesIntro(
+                          partnerName: partnerName,
+                          onTemplate: (t) => _compose(template: t),
+                          onWrite: _compose,
+                        ),
+                      )
+                    else
+                      enter(
+                        LoveNotesHero(
+                          title: unopened > 0
+                              ? 'Love is in the mail'
+                              : 'Your love notes',
+                          subtitle: heroLine,
+                          onWrite: _compose,
+                        ),
                       ),
                     if (waiting.isNotEmpty) ...[
-                      const LoveNotesSectionHeader('On its way to you'),
+                      enter(const LoveNotesSectionHeader('On its way to you')),
                       for (final n in waiting)
-                        LoveNoteTile(
-                          note: n,
-                          subtitle:
-                              'From $partnerName · '
-                              '${_arrives(n.deliverAt, now)}',
-                          sealed: true,
-                          onTap: () => _open(n),
+                        enter(
+                          LoveNoteTile(
+                            note: n,
+                            subtitle:
+                                'From $partnerName · '
+                                '${_arrives(n.deliverAt, now)}',
+                            sealed: true,
+                            countdown: _left(n.deliverAt, now),
+                            onTap: () => _open(n),
+                          ),
                         ),
                     ],
                     if (envelopes.isNotEmpty) ...[
-                      const LoveNotesSectionHeader('Open when…'),
-                      OpenWhenEnvelopeGrid(notes: envelopes, onOpen: _open),
+                      enter(const LoveNotesSectionHeader('Open when…')),
+                      enter(
+                        OpenWhenEnvelopeGrid(notes: envelopes, onOpen: _open),
+                      ),
                     ],
                     if (letters.isNotEmpty) ...[
-                      const LoveNotesSectionHeader('For you'),
+                      enter(const LoveNotesSectionHeader('For you')),
                       for (final n in letters)
-                        LoveNoteTile(
-                          note: n,
-                          subtitle:
-                              'From $partnerName · '
-                              '${DateFormat.yMMMd().format(n.deliverAt)}',
-                          unread: !n.isOpened,
-                          onTap: () => _open(n),
+                        enter(
+                          LoveNoteTile(
+                            note: n,
+                            subtitle:
+                                'From $partnerName · '
+                                '${DateFormat.yMMMd().format(n.deliverAt)}',
+                            unread: !n.isOpened,
+                            onTap: () => _open(n),
+                          ),
                         ),
                     ],
                     if (sent.isNotEmpty) ...[
-                      const LoveNotesSectionHeader('Sent by you'),
+                      enter(const LoveNotesSectionHeader('Sent by you')),
                       for (final n in sent)
-                        LoveNoteTile(
-                          note: n,
-                          subtitle: _sentStatus(n, now, partnerName),
-                          onTap: () => _open(n),
+                        enter(
+                          LoveNoteTile(
+                            note: n,
+                            subtitle: _sentStatus(n, now, partnerName),
+                            muted: true,
+                            onTap: () => _open(n),
+                          ),
                         ),
                     ],
                     if (notes.isNotEmpty) ...[
-                      const LoveNotesSectionHeader(
-                        'Write an “Open when…” note',
+                      enter(
+                        const LoveNotesSectionHeader(
+                          'Write an “Open when…” note',
+                        ),
                       ),
-                      OpenWhenTemplateRow(
-                        onTemplate: (t) => _compose(template: t),
+                      enter(
+                        OpenWhenTemplateRow(
+                          onTemplate: (t) => _compose(template: t),
+                        ),
                       ),
                     ],
                   ],
@@ -147,6 +186,15 @@ class _LoveNotesScreenState extends ConsumerState<LoveNotesScreen> {
         );
       },
     );
+  }
+
+  /// "2d 14h" or "5h 20m" until a sealed note arrives.
+  static String _left(DateTime at, DateTime now) {
+    final left = at.difference(now);
+    if (left.inMinutes < 1) return 'soon';
+    if (left.inDays > 0) return '${left.inDays}d ${left.inHours % 24}h';
+    if (left.inHours > 0) return '${left.inHours}h ${left.inMinutes % 60}m';
+    return '${left.inMinutes}m';
   }
 
   static String _arrives(DateTime at, DateTime now) {

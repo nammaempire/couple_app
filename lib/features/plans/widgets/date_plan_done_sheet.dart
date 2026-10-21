@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/date_plan.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_hearts.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// What the "How did it go?" sheet returns.
 typedef DatePlanRecap = ({int? rating, String reflection});
@@ -30,6 +32,7 @@ class _DatePlanDoneSheetState extends State<DatePlanDoneSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final b = theme.brightness;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
@@ -39,25 +42,34 @@ class _DatePlanDoneSheetState extends State<DatePlanDoneSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'How did it go?',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.plan.title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Center(
-                child: DatePlanHearts(
-                  rating: _rating,
-                  size: 32,
-                  onChanged: (r) => setState(() => _rating = r),
+              SheetGradientHeader(
+                preset: GradientPreset.blush,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'How did it go?',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: GradientPreset.blush.foreground(b),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.plan.title,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: GradientPreset.blush.foregroundMuted(b),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Center(
+                      child: DatePlanHearts(
+                        rating: _rating,
+                        size: 32,
+                        onChanged: (r) => setState(() => _rating = r),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 12),
@@ -78,6 +90,7 @@ class _DatePlanDoneSheetState extends State<DatePlanDoneSheet> {
                   rating: _rating,
                   reflection: _reflection.text.trim(),
                 )),
+                style: FilledButton.styleFrom(shape: const StadiumBorder()),
                 icon: const Icon(Icons.favorite),
                 label: const Text('Save to done'),
               ),

@@ -9,22 +9,33 @@ class ReactionPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.surfaceContainerLowest,
+            Color.alphaBlend(
+              scheme.primaryContainer.withValues(alpha: .5),
+              scheme.surfaceContainerLowest,
+            ),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: .4)),
+        border: Border.all(color: scheme.primary.withValues(alpha: .18)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .08),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: scheme.primary.withValues(alpha: .16),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Text(emoji.join(' '), style: const TextStyle(fontSize: 12)),
+      child: Text(emoji.join(' '), style: const TextStyle(fontSize: 13)),
     );
   }
 }

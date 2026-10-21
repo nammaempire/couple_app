@@ -19,7 +19,7 @@ import 'package:couple_app/features/plans/widgets/date_plan_done_sheet.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_surprise_card.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_surprise_dialog.dart';
 import 'package:couple_app/features/plans/widgets/date_planner_empty_state.dart';
-import 'package:couple_app/features/together/widgets/calendar_section_title.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Date ideas, planned dates and the ones you've been on, with "Surprise
 /// me" for when you can't decide.
@@ -238,16 +238,19 @@ class _DatePlannerScreenState extends ConsumerState<DatePlannerScreen> {
               ideaCount: ideas.length,
               onSurprise: () => _surprise(ideas),
             ),
-            ...ideas.map(card),
+            ...staggered(ideas.map(card), start: 1),
           ],
           DatePlanStatus.planned => [
             if (upcoming.isNotEmpty) ...[
-              const CalendarSectionTitle(label: 'Coming up'),
-              ...upcoming.map(card),
+              const SoftSectionHeader(
+                label: 'Coming up',
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 10),
+              ),
+              ...staggered(upcoming.map(card)),
             ],
             if (recap.isNotEmpty) ...[
-              const CalendarSectionTitle(label: 'How did it go?'),
-              ...recap.map(card),
+              const SoftSectionHeader(label: 'How did it go?'),
+              ...staggered(recap.map(card), start: upcoming.length),
             ],
           ],
           DatePlanStatus.done => [
@@ -262,7 +265,7 @@ class _DatePlannerScreenState extends ConsumerState<DatePlannerScreen> {
                 ),
               ),
             ),
-            ...done.map(card),
+            ...staggered(done.map(card), start: 1),
           ],
         },
       );

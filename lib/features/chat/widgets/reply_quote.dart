@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/chat/models/message.dart';
+import 'package:couple_app/features/chat/widgets/chat_palette.dart';
 import 'package:couple_app/features/chat/widgets/sticker_reply_thumb.dart';
 
 /// The quoted message at the top of a reply.
@@ -37,11 +38,10 @@ class ReplyQuote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = onMine
-        ? theme.colorScheme.onPrimary
-        : theme.colorScheme.primary;
+    final palette = ChatPalette.of(context);
+    final accent = onMine ? palette.onMine : theme.colorScheme.primary;
     final textColor = onMine
-        ? theme.colorScheme.onPrimary.withValues(alpha: .85)
+        ? palette.onMine.withValues(alpha: .88)
         : theme.colorScheme.onSurfaceVariant;
     final isSticker =
         reply.type == MessageType.sticker && reply.stickerId != null;
@@ -52,9 +52,9 @@ class ReplyQuote extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
         decoration: BoxDecoration(
           color: onMine
-              ? Colors.black.withValues(alpha: .12)
-              : theme.colorScheme.primary.withValues(alpha: .08),
-          borderRadius: BorderRadius.circular(10),
+              ? Colors.white.withValues(alpha: .16)
+              : theme.colorScheme.primary.withValues(alpha: .09),
+          borderRadius: BorderRadius.circular(12),
           border: Border(left: BorderSide(color: accent, width: 3)),
         ),
         child: Row(

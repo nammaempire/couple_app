@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/wishlist_claim.dart';
 import 'package:couple_app/features/plans/models/wishlist_item.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/wishlist_item_card.dart';
 import 'package:couple_app/features/plans/widgets/wishlist_item_meta.dart';
 
 /// What you can do with one of your partner's wishes.
@@ -43,61 +46,60 @@ class WishlistPartnerItemCard extends StatelessWidget {
     final claim = this.claim;
     final mine = claim != null;
 
-    return Card(
-      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-      elevation: 0,
-      color: mine
-          ? scheme.tertiaryContainer.withValues(alpha: 0.55)
-          : scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      item.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+    final preset = mine
+        ? GradientPreset.lavender
+        : WishlistLook.presetFor(item.priority);
+    return TintedCard(
+      preset: preset,
+      muted: item.received && !mine,
+      edge: mine,
+      glow: mine ? preset.accent(theme.brightness) : null,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    item.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                if (item.hasLink)
-                  IconButton(
-                    tooltip: 'Open link',
-                    icon: const Icon(Icons.open_in_new),
-                    onPressed: onOpenLink,
-                  ),
-              ],
-            ),
-            if (item.notes.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(right: 8, bottom: 8),
-                child: Text(
-                  item.notes,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+              ),
+              if (item.hasLink)
+                IconButton(
+                  tooltip: 'Open link',
+                  icon: const Icon(Icons.open_in_new),
+                  onPressed: onOpenLink,
+                ),
+            ],
+          ),
+          if (item.notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, bottom: 8),
+              child: Text(
+                item.notes,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: WishlistItemMeta(item: item, currency: currency),
             ),
-            const SizedBox(height: 12),
-            _claimArea(context, claim),
-          ],
-        ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: WishlistItemMeta(item: item, currency: currency),
+          ),
+          const SizedBox(height: 12),
+          _claimArea(context, claim),
+        ],
       ),
     );
   }
@@ -142,11 +144,14 @@ class WishlistPartnerItemCard extends StatelessWidget {
       return Row(
         children: [
           Expanded(child: secretNote),
-          FilledButton.tonalIcon(
+          FilledButton.icon(
             onPressed: busy || !canClaim
                 ? null
                 : () => onAction(WishlistClaimAction.claim),
-            style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(0, 40),
+              shape: const StadiumBorder(),
+            ),
             icon: const Icon(Icons.card_giftcard, size: 18),
             label: const Text('I\'ll get this'),
           ),
@@ -201,7 +206,10 @@ class WishlistPartnerItemCard extends StatelessWidget {
                 onPressed: busy
                     ? null
                     : () => onAction(WishlistClaimAction.markNotBought),
-                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 40)),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  shape: const StadiumBorder(),
+                ),
                 child: const Text('Not bought yet'),
               )
             else
@@ -209,7 +217,10 @@ class WishlistPartnerItemCard extends StatelessWidget {
                 onPressed: busy
                     ? null
                     : () => onAction(WishlistClaimAction.markBought),
-                style: FilledButton.styleFrom(minimumSize: const Size(0, 40)),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, 40),
+                  shape: const StadiumBorder(),
+                ),
                 icon: const Icon(Icons.shopping_bag_outlined, size: 18),
                 label: const Text('Bought it'),
               ),

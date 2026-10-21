@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/utils/duration_format.dart';
 import 'package:couple_app/features/chat/models/message.dart';
+import 'package:couple_app/features/chat/widgets/chat_chrome.dart';
 import 'package:couple_app/features/chat/widgets/chat_palette.dart';
 
 /// A call record, shown centred in the conversation rather than as a bubble.
@@ -47,22 +48,40 @@ class CallLogTile extends StatelessWidget {
         : theme.colorScheme.onSurfaceVariant;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 24),
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.fromLTRB(6, 5, 14, 5),
           decoration: BoxDecoration(
             color: ChatPalette.of(context).systemChip,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: ChatPalette.of(context).glassBorder),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: color),
+              GradientBadge(
+                icon: icon,
+                size: 24,
+                iconSize: 14,
+                colors: alert
+                    ? [
+                        theme.colorScheme.error,
+                        Color.lerp(
+                          theme.colorScheme.error,
+                          theme.colorScheme.tertiary,
+                          .35,
+                        )!,
+                      ]
+                    : null,
+                foreground: alert ? theme.colorScheme.onError : null,
+              ),
               const SizedBox(width: 8),
-              Text(
-                '$label$time',
-                style: theme.textTheme.labelMedium?.copyWith(color: color),
+              Flexible(
+                child: Text(
+                  '$label$time',
+                  style: theme.textTheme.labelMedium?.copyWith(color: color),
+                ),
               ),
             ],
           ),

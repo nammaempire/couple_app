@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
+
 import 'package:couple_app/features/memories/models/memory.dart';
 import 'package:couple_app/features/memories/widgets/memory_banner_card.dart';
 
@@ -23,56 +27,78 @@ class MemoryHighlights extends StatelessWidget {
     final onThisDay = MemoryRecap.onThisDay(all, now);
     final thisMonth = MemoryRecap.month(all, now.year, now.month);
 
+    final b = theme.brightness;
+    const recapPreset = GradientPreset.lavender;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Column(
         children: [
           if (onThisDay.isNotEmpty)
-            MemoryBannerCard(
-              imageUrl: onThisDay.first.coverUrl,
-              eyebrow: 'ON THIS DAY',
-              title: onThisDay.first.title,
-              subtitle: _yearsAgo(now.year - onThisDay.first.date.year),
-              onTap: () => onOpenMemory(onThisDay.first),
+            EntranceAnimation(
+              child: MemoryBannerCard(
+                imageUrl: onThisDay.first.coverUrl,
+                eyebrow: 'ON THIS DAY',
+                title: onThisDay.first.title,
+                subtitle: _yearsAgo(now.year - onThisDay.first.date.year),
+                emoji: MemoryAlbums.emojiFor(onThisDay.first.album),
+                onTap: () => onOpenMemory(onThisDay.first),
+              ),
             ),
-          if (onThisDay.isNotEmpty) const SizedBox(height: 10),
-          Material(
-            color: theme.colorScheme.primaryContainer.withValues(alpha: .6),
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
+          if (onThisDay.isNotEmpty) const SizedBox(height: 12),
+          EntranceAnimation(
+            index: 1,
+            child: AnimatedGradientCard(
+              preset: recapPreset,
               onTap: onOpenRecap,
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Our Memories recap',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            thisMonth.isEmpty
-                                ? 'Look back at any month or year'
-                                : '${thisMonth.memories.length} so far in '
-                                      '${thisMonth.label}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+              radius: 22,
+              sheen: false,
+              padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(
+                        alpha: recapPreset.isDarkIn(b) ? .12 : .65,
                       ),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const Icon(Icons.chevron_right),
-                  ],
-                ),
+                    child: Icon(
+                      Icons.auto_awesome,
+                      color: recapPreset.accent(b),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Our Memories recap',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: recapPreset.foreground(b),
+                          ),
+                        ),
+                        Text(
+                          thisMonth.isEmpty
+                              ? 'Look back at any month or year'
+                              : '${thisMonth.memories.length} so far in '
+                                    '${thisMonth.label}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: recapPreset.foregroundMuted(b),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: recapPreset.foregroundMuted(b),
+                  ),
+                ],
               ),
             ),
           ),

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/home/models/important_date.dart';
@@ -204,15 +207,6 @@ class _ComingUpSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .5),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: child,
-    );
+    return AnimatedGradientCard(preset: GradientPreset.lavender, child: child);
   }
 }

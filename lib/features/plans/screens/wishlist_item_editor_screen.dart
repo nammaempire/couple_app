@@ -10,6 +10,8 @@ import 'package:couple_app/features/plans/data/wishlist_service.dart';
 import 'package:couple_app/features/plans/models/wishlist_item.dart';
 import 'package:couple_app/features/plans/models/wishlist_price.dart';
 import 'package:couple_app/features/plans/providers/wishlist_providers.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/wishlist_item_card.dart';
 
 /// Add or edit one of your own wishes.
 class WishlistItemEditorScreen extends ConsumerStatefulWidget {
@@ -120,7 +122,6 @@ class _WishlistItemEditorScreenState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final currency =
         ref.watch(coupleProvider).value?.currency ?? Couple.defaultCurrency;
     final partnerName = ref.watch(partnerNameProvider);
@@ -163,6 +164,12 @@ class _WishlistItemEditorScreenState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
+              if (!_isEditing)
+                EditorHeaderStrip(
+                  emoji: _priority.emoji,
+                  preset: WishlistLook.presetFor(_priority),
+                  text: 'Drop a hint, so the perfect gift finds you.',
+                ),
               TextFormField(
                 controller: _title,
                 autofocus: !_isEditing,
@@ -177,11 +184,7 @@ class _WishlistItemEditorScreenState
                     (v == null || v.trim().isEmpty) ? 'Add a title' : null,
               ),
               const SizedBox(height: 20),
-              Text(
-                'How much do you want it?',
-                style: theme.textTheme.titleSmall,
-              ),
-              const SizedBox(height: 8),
+              const SoftFieldLabel('How much do you want it?'),
               SegmentedButton<WishlistPriority>(
                 segments: [
                   for (final p in WishlistPriority.values)
@@ -196,8 +199,7 @@ class _WishlistItemEditorScreenState
                 onSelectionChanged: (s) => setState(() => _priority = s.first),
               ),
               const SizedBox(height: 20),
-              Text('Good for', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SoftFieldLabel('Good for'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

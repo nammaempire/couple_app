@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/plans/models/expense_math.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Live "who carries what" for the expense being edited.
 class ExpenseSplitPreview extends StatelessWidget {
@@ -110,9 +112,22 @@ class ExpenseSplitPreview extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: tintedColors(
+            GradientPreset.mint,
+            theme.brightness,
+            theme.scaffoldBackgroundColor,
+            strength: .55,
+          ),
+        ),
+        border: Border.all(
+          color: GradientPreset.mint
+              .accent(theme.brightness)
+              .withValues(alpha: .3),
+        ),
       ),
       child: body,
     );

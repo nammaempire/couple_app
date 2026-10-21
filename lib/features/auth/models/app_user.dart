@@ -92,6 +92,10 @@ class AppUser {
   /// unset, the avatar is used only if there is no photo.
   final bool? avatarAsPhoto;
 
+  /// "Clear chat for me": messages sent at or before this (server time) are
+  /// hidden on this account only.
+  final DateTime? chatClearedAt;
+
   /// Whether their profile picture should be drawn as the avatar.
   bool get showsAvatar =>
       avatar != null && (avatarAsPhoto ?? (photoUrl == null));
@@ -110,6 +114,7 @@ class AppUser {
     this.notificationsReviewed = false,
     this.avatar,
     this.avatarAsPhoto,
+    this.chatClearedAt,
   });
 
   factory AppUser.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -140,6 +145,7 @@ class AppUser {
       notificationsReviewed: prefs is Map<String, dynamic>,
       avatar: AvatarConfig.fromMap(data['avatar']),
       avatarAsPhoto: data['avatarAsPhoto'] as bool?,
+      chatClearedAt: (data['chatClearedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -164,6 +170,7 @@ class AppUser {
       notificationsReviewed: notificationsReviewed,
       avatar: avatar,
       avatarAsPhoto: avatarAsPhoto,
+      chatClearedAt: chatClearedAt,
     );
   }
 }

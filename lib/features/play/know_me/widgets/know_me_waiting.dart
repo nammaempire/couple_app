@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+
 /// A calm, centred message while the partner takes their turn (or, with
 /// [action], while something is ready for me to do).
 class KnowMeWaiting extends StatelessWidget {
@@ -19,6 +21,7 @@ class KnowMeWaiting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -31,20 +34,36 @@ class KnowMeWaiting extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primaryContainer,
+              Bobbing(
+                amplitude: 5,
+                child: Container(
+                  width: 104,
+                  height: 104,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: dark ? .12 : .8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: dark ? .2 : .9),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withValues(alpha: .18),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Text(emoji, style: const TextStyle(fontSize: 48)),
                 ),
-                child: Text(emoji, style: const TextStyle(fontSize: 44)),
               ),
               const SizedBox(height: 20),
               Text(
                 title,
-                style: theme.textTheme.titleLarge,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),

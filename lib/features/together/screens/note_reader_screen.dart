@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:couple_app/core/services/voice_playback.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
-import 'package:couple_app/core/widgets/voice_clip_player.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/floating_hearts.dart';
+import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
+import 'package:couple_app/features/home/models/love_tap.dart';
+import 'package:couple_app/features/home/providers/home_providers.dart';
 import 'package:couple_app/features/together/data/love_note_service.dart';
 import 'package:couple_app/features/together/models/love_note.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
+import 'package:couple_app/features/together/screens/note_composer_screen.dart';
+import 'package:couple_app/features/together/widgets/love_letter_view.dart';
 import 'package:couple_app/features/together/widgets/note_envelope_view.dart';
+import 'package:couple_app/features/together/widgets/note_theme.dart';
 import 'package:couple_app/features/together/widgets/sealed_note_view.dart';
 
 /// Opens one love note. The recipient sees a sealed envelope until the
@@ -32,6 +40,9 @@ class _NoteReaderScreenState extends ConsumerState<NoteReaderScreen> {
   LoveNoteContent? _content;
   bool _loading = false;
   bool _sealed = false;
+
+  /// Opened from the envelope here, so the reveal plays.
+  bool _tappedOpen = false;
   String? _error;
 
   bool get _isMine => widget.note.senderId == _myUid;
@@ -122,93 +133,103 @@ class _NoteReaderScreenState extends ConsumerState<NoteReaderScreen> {
     }
   }
 
+  Future<void> _sendKiss() async {
+    await HapticFeedback.mediumImpact();
+    try {
+      await ref
+          .read(nudgeServiceProvider)
+          .send(coupleId: _coupleId, senderId: _myUid, kind: LoveTap.kiss);
+      if (!mounted) return;
+      context.showSnackMessage(
+        'Kiss sent to ${ref.read(partnerNameProvider)} ${LoveTap.kiss.emoji}',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      context.showSnackMessage('Could not send. Check your connection.');
+    }
+  }
+
+  void _writeBack() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const NoteComposerScreen(),
+      ),
+    );
+  }
+
+  String? _status(String partnerName) {
+    if (!_isMine) return null;
+    final note = widget.note;
+    return note.isOpened
+        ? '$partnerName opened this on '
+              '${DateFormat.yMMMd().add_jm().format(note.openedAt!)}.'
+        : note.isScheduled(DateTime.now())
+        ? 'Sealed until '
+              '${DateFormat.yMMMd().add_jm().format(note.deliverAt)}.'
+        : 'Not opened yet.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final note = widget.note;
     final partnerName = ref.watch(partnerNameProvider);
-    final dark = theme.brightness == Brightness.dark;
+    final myName = ref.watch(profileProvider(_myUid)).value?.displayName ?? '';
+    final b = theme.brightness;
+    final look = NoteTheme.of(note);
+    final fg = look.preset.foreground(b);
+    final darkBg = look.preset.isDarkIn(b);
+    final envelope = _content == null && !_sealed && _error == null;
 
     Widget body;
-    if (_loading) {
-      body = const Center(child: CircularProgressIndicator());
+    if (_loading && !envelope) {
+      body = Center(child: CircularProgressIndicator(color: fg));
     } else if (_error != null) {
-      body = Center(child: Text(_error!));
+      body = Center(
+        child: GlassPanel(
+          dark: darkBg,
+          child: Text(_error!, style: TextStyle(color: fg)),
+        ),
+      );
     } else if (_sealed) {
       body = SealedNoteView(note: note, partnerName: partnerName);
     } else if (_content == null) {
-      body = NoteEnvelopeView(note: note, onOpen: _open);
+      body = SafeArea(
+        child: _loading && !_tappedOpen
+            ? Center(child: CircularProgressIndicator(color: fg))
+            : NoteEnvelopeView(
+                note: note,
+                from: _isMine ? null : partnerName,
+                opening: _loading,
+                onOpen: () {
+                  _tappedOpen = true;
+                  _open();
+                },
+              ),
+      );
     } else {
-      final content = _content!;
-      body = ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-            decoration: BoxDecoration(
-              color: dark ? const Color(0xFF2A2124) : const Color(0xFFFFFBF5),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: .06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+      body = LoveLetterView(
+        note: note,
+        content: _content!,
+        isMine: _isMine,
+        partnerName: partnerName,
+        myName: _isMine ? (myName.isEmpty ? 'You' : myName) : myName,
+        reveal: !_isMine && (_tappedOpen || !note.isOpened),
+        status: _status(partnerName),
+        actions: [
+          if (!_isMine) ...[
+            GlassChip(
+              dark: darkBg,
+              leading: const Text('❤️', style: TextStyle(fontSize: 16)),
+              label: 'Send a kiss back',
+              onTap: _sendKiss,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(note.emoji, style: const TextStyle(fontSize: 32)),
-                const SizedBox(height: 8),
-                Text(
-                  note.envelopeTitle,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_isMine ? 'To $partnerName' : 'From $partnerName'}'
-                  ' · ${DateFormat.yMMMMd().format(note.deliverAt)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                if (content.body.isNotEmpty)
-                  SelectableText(
-                    content.body,
-                    style: theme.textTheme.bodyLarge?.copyWith(height: 1.7),
-                  ),
-                if (content.voiceUrl != null) ...[
-                  const SizedBox(height: 20),
-                  VoiceClipPlayer(
-                    clipId: 'note-${note.id}',
-                    url: content.voiceUrl,
-                    duration: note.voiceDurationMs == null
-                        ? null
-                        : Duration(milliseconds: note.voiceDurationMs!),
-                    color: theme.colorScheme.onSurface,
-                    maxWidth: 420,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (_isMine) ...[
-            const SizedBox(height: 16),
-            Text(
-              note.isOpened
-                  ? '$partnerName opened this on '
-                        '${DateFormat.yMMMd().add_jm().format(note.openedAt!)}.'
-                  : note.isScheduled(DateTime.now())
-                  ? 'Sealed until '
-                        '${DateFormat.yMMMd().add_jm().format(note.deliverAt)}.'
-                  : 'Not opened yet.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall,
+            GlassChip(
+              dark: darkBg,
+              leading: const Text('✍️', style: TextStyle(fontSize: 16)),
+              label: 'Write back',
+              onTap: _writeBack,
             ),
           ],
         ],
@@ -216,7 +237,16 @@ class _NoteReaderScreenState extends ConsumerState<NoteReaderScreen> {
     }
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: look.preset.colors(b).first,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
+        foregroundColor: fg,
+        systemOverlayStyle: darkBg
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
         actions: [
           if (_isMine)
             IconButton(
@@ -226,7 +256,22 @@ class _NoteReaderScreenState extends ConsumerState<NoteReaderScreen> {
             ),
         ],
       ),
-      body: body,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedGradientBackground(preset: look.preset),
+          ),
+          Positioned.fill(
+            child: FloatingHearts(
+              style: look.particles,
+              color: look.particleColor(b),
+              count: look.particles == ParticleStyle.stars ? 34 : 16,
+              opacity: look.particles == ParticleStyle.stars ? .8 : .5,
+            ),
+          ),
+          Positioned.fill(child: body),
+        ],
+      ),
     );
   }
 }

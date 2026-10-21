@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/core/widgets/animated_gradient_card.dart';
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 import 'package:couple_app/features/together/data/event_service.dart';
 import 'package:couple_app/features/together/models/calendar_event.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
@@ -13,7 +16,6 @@ import 'package:couple_app/features/together/widgets/calendar_day_section.dart';
 import 'package:couple_app/features/together/widgets/calendar_event_tile.dart';
 import 'package:couple_app/features/together/widgets/calendar_month_grid.dart';
 import 'package:couple_app/features/together/widgets/calendar_month_header.dart';
-import 'package:couple_app/features/together/widgets/calendar_section_title.dart';
 import 'package:couple_app/features/together/widgets/event_details_sheet.dart';
 
 /// The shared calendar: a month grid, the selected day's events and what is
@@ -86,27 +88,41 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 96),
         children: [
-          CalendarMonthHeader(
-            month: _month,
-            onPrevious: () => setState(
-              () => _month = DateTime(_month.year, _month.month - 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: AnimatedGradientCard(
+              preset: GradientPreset.blush,
+              radius: 28,
+              sheen: false,
+              duration: const Duration(seconds: 12),
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 10),
+              child: Column(
+                children: [
+                  CalendarMonthHeader(
+                    month: _month,
+                    onPrevious: () => setState(
+                      () => _month = DateTime(_month.year, _month.month - 1),
+                    ),
+                    onNext: () => setState(
+                      () => _month = DateTime(_month.year, _month.month + 1),
+                    ),
+                    onToday: () => setState(() {
+                      _month = DateTime(_today.year, _today.month);
+                      _selected = _today;
+                    }),
+                  ),
+                  CalendarMonthGrid(
+                    month: _month,
+                    selected: _selected,
+                    today: _today,
+                    events: events,
+                    onSelect: (day) => setState(() => _selected = day),
+                  ),
+                ],
+              ),
             ),
-            onNext: () => setState(
-              () => _month = DateTime(_month.year, _month.month + 1),
-            ),
-            onToday: () => setState(() {
-              _month = DateTime(_today.year, _today.month);
-              _selected = _today;
-            }),
           ),
-          CalendarMonthGrid(
-            month: _month,
-            selected: _selected,
-            today: _today,
-            events: events,
-            onSelect: (day) => setState(() => _selected = day),
-          ),
-          const Divider(height: 24),
+          const SizedBox(height: 4),
           CalendarDaySection(
             day: _selected,
             events: dayEvents,
@@ -114,13 +130,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             onAdd: () => _openEditor(day: _selected),
           ),
           if (upcoming.isNotEmpty) ...[
-            const CalendarSectionTitle(label: 'Upcoming'),
-            for (final (event, at) in upcoming)
-              CalendarEventTile(
-                event: event,
-                when: at,
-                showDate: true,
-                onTap: () => _showDetails(event, at),
+            const SoftSectionHeader(label: 'Upcoming'),
+            for (final (i, (event, at)) in upcoming.indexed)
+              stagger(
+                i + 1,
+                CalendarEventTile(
+                  event: event,
+                  when: at,
+                  showDate: true,
+                  onTap: () => _showDetails(event, at),
+                ),
               ),
           ],
         ],

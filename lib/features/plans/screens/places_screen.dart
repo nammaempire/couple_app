@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/empty_state.dart';
+import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/plans/data/date_plan_service.dart';
@@ -18,6 +19,7 @@ import 'package:couple_app/features/plans/widgets/place_card.dart';
 import 'package:couple_app/features/plans/widgets/place_category_chips.dart';
 import 'package:couple_app/features/plans/widgets/place_details_sheet.dart';
 import 'package:couple_app/features/plans/widgets/places_empty_state.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// Places you want to go together and the ones you've been, with Maps
 /// links and "Plan a date here".
@@ -82,7 +84,9 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
   }
 
   Future<void> _openMaps(Place place) async {
-    final ok = await launchPlaceInMaps(place);
+    final ok = await ref
+        .read(appLockControllerProvider.notifier)
+        .suspendWhile(launchPlaceInMaps(place));
     if (!ok && mounted) context.showSnackMessage('Could not open Maps.');
   }
 
@@ -225,14 +229,16 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
     return ListView(
       padding: const EdgeInsets.only(top: 4, bottom: 96),
       children: [
-        for (final p in shown)
-          PlaceCard(
-            key: ValueKey(p.id),
-            place: p,
-            onTap: () => _showDetails(p),
-            onToggleFavourite: () => _toggleFavourite(p),
-            onOpenMaps: () => _openMaps(p),
-          ),
+        ...staggered([
+          for (final p in shown)
+            PlaceCard(
+              key: ValueKey(p.id),
+              place: p,
+              onTap: () => _showDetails(p),
+              onToggleFavourite: () => _toggleFavourite(p),
+              onOpenMaps: () => _openMaps(p),
+            ),
+        ]),
       ],
     );
   }

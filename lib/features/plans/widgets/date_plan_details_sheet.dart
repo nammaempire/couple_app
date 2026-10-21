@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 
 import 'package:couple_app/features/plans/models/date_plan.dart';
 import 'package:couple_app/features/plans/models/date_plan_lists.dart';
+import 'package:couple_app/features/plans/widgets/date_plan_card.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_hearts.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// What the details sheet asks the planner to do.
 enum DatePlanAction { plan, reschedule, markDone, moveToIdeas, edit, delete }
@@ -65,6 +67,10 @@ class DatePlanDetailsSheet extends StatelessWidget {
       ),
     };
 
+    final preset = DatePlanLook.presetFor(plan.vibe);
+    final fg = preset.foreground(theme.brightness);
+    final fgMuted = preset.foregroundMuted(theme.brightness);
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
@@ -72,18 +78,25 @@ class DatePlanDetailsSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${plan.vibe.emoji}  '
-              '${plan.title.isEmpty ? 'Untitled date' : plan.title}',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${plan.vibe.label} · ${plan.status == DatePlanStatus.idea ? 'Idea' : plan.status.label} · added by $addedBy',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
+            SheetGradientHeader(
+              preset: DatePlanLook.presetFor(plan.vibe),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${plan.vibe.emoji}  '
+                    '${plan.title.isEmpty ? 'Untitled date' : plan.title}',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: fg,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${plan.vibe.label} · ${plan.status == DatePlanStatus.idea ? 'Idea' : plan.status.label} · added by $addedBy',
+                    style: theme.textTheme.bodySmall?.copyWith(color: fgMuted),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),

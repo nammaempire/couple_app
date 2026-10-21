@@ -13,6 +13,8 @@ import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_date_time_picker.dart';
 import 'package:couple_app/features/plans/widgets/date_plan_hearts.dart';
 import 'package:couple_app/features/together/widgets/event_picker_field.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
+import 'package:couple_app/features/plans/widgets/date_plan_card.dart';
 
 /// Add or edit a date plan. New plans are ideas unless a date is picked.
 class DatePlanEditorScreen extends ConsumerStatefulWidget {
@@ -175,7 +177,6 @@ class _DatePlanEditorScreenState extends ConsumerState<DatePlanEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final currency = ref.watch(coupleProvider).value?.currency ?? 'INR';
     final partnerName = ref.watch(partnerNameProvider);
     final isEditing = _original != null;
@@ -216,6 +217,12 @@ class _DatePlanEditorScreenState extends ConsumerState<DatePlanEditorScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
             children: [
+              if (!isEditing)
+                EditorHeaderStrip(
+                  emoji: _vibe.emoji,
+                  preset: DatePlanLook.presetFor(_vibe),
+                  text: 'Dream it up now, make it happen soon.',
+                ),
               TextFormField(
                 controller: _title,
                 autofocus: !isEditing,
@@ -230,8 +237,7 @@ class _DatePlanEditorScreenState extends ConsumerState<DatePlanEditorScreen> {
                     (v == null || v.trim().isEmpty) ? 'Add a title' : null,
               ),
               const SizedBox(height: 20),
-              Text('Vibe', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SoftFieldLabel('Vibe'),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -332,8 +338,7 @@ class _DatePlanEditorScreenState extends ConsumerState<DatePlanEditorScreen> {
               ),
               if (_isDone) ...[
                 const Divider(height: 32),
-                Text('How it went', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 4),
+                const SoftFieldLabel('How it went'),
                 DatePlanHearts(
                   rating: _rating,
                   size: 28,

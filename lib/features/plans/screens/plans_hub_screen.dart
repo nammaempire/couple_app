@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/features/plans/models/date_plan.dart';
@@ -48,6 +50,7 @@ class PlansHubScreen extends ConsumerWidget {
         PlansHubTile(
           icon: Icons.wine_bar_outlined,
           title: 'Date planner',
+          preset: GradientPreset.sunset,
           subtitle: 'Ideas, upcoming dates and how they went',
           summary: upcoming != null && upcoming > 0
               ? '$upcoming coming up'
@@ -57,6 +60,7 @@ class PlansHubScreen extends ConsumerWidget {
         PlansHubTile(
           icon: Icons.checklist_rounded,
           title: 'Bucket list',
+          preset: GradientPreset.mint,
           subtitle: 'Things to do together, someday',
           summary: bucket == null || bucket.isEmpty
               ? null
@@ -66,6 +70,7 @@ class PlansHubScreen extends ConsumerWidget {
         PlansHubTile(
           icon: Icons.card_giftcard_outlined,
           title: 'Wishlist',
+          preset: GradientPreset.blush,
           subtitle: 'Gift ideas for each other',
           summary: count(wishes, 'wish', 'wishes'),
           onTap: () => _open(context, const WishlistScreen()),
@@ -73,6 +78,7 @@ class PlansHubScreen extends ConsumerWidget {
         PlansHubTile(
           icon: Icons.place_outlined,
           title: 'Places',
+          preset: GradientPreset.ocean,
           subtitle: 'Where you want to go, and where you have been',
           summary: count(places, 'place', 'places'),
           onTap: () => _open(context, const PlacesScreen()),
@@ -80,6 +86,7 @@ class PlansHubScreen extends ConsumerWidget {
         PlansHubTile(
           icon: Icons.account_balance_wallet_outlined,
           title: 'Shared expenses',
+          preset: GradientPreset.lavender,
           subtitle: 'Who paid for what, and who owes whom',
           summary: count(expenses, 'entry', 'entries'),
           onTap: () => _open(context, const ExpensesScreen()),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:couple_app/core/media/media_navigation.dart';
 import 'package:couple_app/core/utils/duration_format.dart';
 import 'package:couple_app/features/chat/models/message.dart';
+import 'package:couple_app/features/chat/widgets/chat_privacy_scope.dart';
 import 'package:couple_app/features/chat/widgets/message_meta_row.dart';
 
 /// Photo, or video thumbnail with a play button and length.
@@ -25,11 +26,21 @@ class MessageMediaContent extends StatelessWidget {
     if (_isVideo) {
       final url = message.mediaUrl;
       if (url == null) return;
-      openVideo(context, url);
+      openVideo(
+        context,
+        url,
+        wrap: (viewer) =>
+            ChatPrivacyScope(subject: ScreenshotSubject.video, child: viewer),
+      );
     } else {
       final url = message.imageUrl;
       if (url == null) return;
-      openPhoto(context, url);
+      openPhoto(
+        context,
+        url,
+        wrap: (viewer) =>
+            ChatPrivacyScope(subject: ScreenshotSubject.photo, child: viewer),
+      );
     }
   }
 

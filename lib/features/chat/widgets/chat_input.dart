@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:couple_app/core/services/voice_recorder.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/chat/models/message.dart';
+import 'package:couple_app/features/chat/widgets/chat_chrome.dart';
+import 'package:couple_app/features/chat/widgets/chat_palette.dart';
 
 /// Composer at the bottom of the chat: text, attachments, stickers, voice
 /// recording, and the "replying to" banner.
@@ -135,30 +137,29 @@ class _ChatInputState extends State<ChatInput> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // A floating glass pill over the chat background, with the send / mic
+    // button beside it.
     return SafeArea(
       top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          border: Border(
-            top: BorderSide(color: theme.dividerColor.withValues(alpha: .5)),
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (widget.replyingTo != null)
-              _ReplyBanner(
-                reply: widget.replyingTo!,
-                label: widget.replyingToLabel ?? '',
-                onClose: widget.onCancelReply,
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: ChatGlass(
+                  radius: 20,
+                  child: _ReplyBanner(
+                    reply: widget.replyingTo!,
+                    label: widget.replyingToLabel ?? '',
+                    onClose: widget.onCancelReply,
+                  ),
+                ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: _voice.isRecording
-                  ? _buildRecording(theme)
-                  : _buildCompose(),
-            ),
+            _voice.isRecording ? _buildRecording(theme) : _buildCompose(),
           ],
         ),
       ),
@@ -166,56 +167,96 @@ class _ChatInputState extends State<ChatInput> {
   }
 
   Widget _buildCompose() {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    const compact = BoxConstraints.tightFor(width: 40, height: 44);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        IconButton(
-          tooltip: 'Send a photo or video',
-          icon: const Icon(Icons.add_circle_outline),
-          onPressed: widget.enabled ? widget.onAttach : null,
-        ),
-        IconButton(
-          tooltip: 'Take a photo',
-          icon: const Icon(Icons.photo_camera_outlined),
-          onPressed: widget.enabled ? widget.onPickCamera : null,
-        ),
-        if (widget.onOpenStickers != null)
-          IconButton(
-            tooltip: 'Stickers',
-            icon: const Icon(Icons.emoji_emotions_outlined),
-            onPressed: widget.enabled ? widget.onOpenStickers : null,
-          ),
         Expanded(
-          child: TextField(
-            controller: _controller,
-            focusNode: _focus,
-            enabled: widget.enabled,
-            minLines: 1,
-            maxLines: 5,
-            textCapitalization: TextCapitalization.sentences,
-            keyboardType: TextInputType.multiline,
-            decoration: const InputDecoration(
-              hintText: 'Message',
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
+          child: ChatGlass(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Send a photo or video',
+                  constraints: compact,
+                  padding: EdgeInsets.zero,
+                  color: theme.colorScheme.primary,
+                  icon: const Icon(Icons.add_circle_rounded),
+                  onPressed: widget.enabled ? widget.onAttach : null,
+                ),
+                if (widget.onOpenStickers != null)
+                  IconButton(
+                    tooltip: 'Stickers',
+                    constraints: compact,
+                    padding: EdgeInsets.zero,
+                    color: muted,
+                    icon: const Icon(Icons.emoji_emotions_outlined),
+                    onPressed: widget.enabled ? widget.onOpenStickers : null,
+                  ),
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focus,
+                    enabled: widget.enabled,
+                    minLines: 1,
+                    maxLines: 5,
+                    textCapitalization: TextCapitalization.sentences,
+                    keyboardType: TextInputType.multiline,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Message',
+                      hintMaxLines: 1,
+                      hintStyle: TextStyle(color: muted),
+                      filled: false,
+                      isDense: true,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Take a photo',
+                  constraints: compact,
+                  padding: EdgeInsets.zero,
+                  color: muted,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  onPressed: widget.enabled ? widget.onPickCamera : null,
+                ),
+                const SizedBox(width: 4),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        if (_hasText)
-          IconButton.filled(
-            tooltip: 'Send',
-            onPressed: widget.enabled ? _send : null,
-            icon: const Icon(Icons.send_rounded),
-          )
-        else
-          IconButton.filledTonal(
-            tooltip: 'Record a voice message',
-            onPressed: widget.enabled ? _startRecording : null,
-            icon: const Icon(Icons.mic_none_rounded),
-          ),
+        const SizedBox(width: 8),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          transitionBuilder: (child, animation) =>
+              ScaleTransition(scale: animation, child: child),
+          child: _hasText
+              ? _GradientAction(
+                  key: const ValueKey('send'),
+                  tooltip: 'Send',
+                  icon: Icons.send_rounded,
+                  onPressed: widget.enabled ? _send : null,
+                )
+              : _GradientAction(
+                  key: const ValueKey('mic'),
+                  tooltip: 'Record a voice message',
+                  icon: Icons.mic_none_rounded,
+                  onPressed: widget.enabled ? _startRecording : null,
+                ),
+        ),
       ],
     );
   }
@@ -227,35 +268,104 @@ class _ChatInputState extends State<ChatInput> {
 
     return Row(
       children: [
-        IconButton(
-          tooltip: 'Discard',
-          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-          onPressed: () => _finishRecording(send: false),
-        ),
-        const SizedBox(width: 4),
-        const _RecordingDot(),
-        const SizedBox(width: 10),
-        Text(
-          label,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            'Recording…',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          child: ChatGlass(
+            child: SizedBox(
+              height: 48,
+              child: Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Discard',
+                    icon: Icon(
+                      Icons.delete_outline,
+                      color: theme.colorScheme.error,
+                    ),
+                    onPressed: () => _finishRecording(send: false),
+                  ),
+                  const _RecordingDot(),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Recording…',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        IconButton.filled(
+        const SizedBox(width: 8),
+        _GradientAction(
           tooltip: 'Send voice message',
+          icon: Icons.send_rounded,
           onPressed: () => _finishRecording(send: true),
-          icon: const Icon(Icons.send_rounded),
         ),
       ],
+    );
+  }
+}
+
+/// The round send / mic button: the chat's accent gradient with a soft
+/// glow.
+class _GradientAction extends StatelessWidget {
+  const _GradientAction({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ChatPalette.of(context);
+    final enabled = onPressed != null;
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: enabled ? 1 : .5,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: ChatPalette.diagonal(palette.accentGradient),
+            boxShadow: [
+              BoxShadow(
+                color: palette.accentGradient.first.withValues(alpha: .35),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Material(
+            type: MaterialType.transparency,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: SizedBox.square(
+                dimension: 50,
+                child: Icon(icon, color: palette.onAccent, size: 24),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -307,7 +417,7 @@ class _ReplyBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+      padding: const EdgeInsets.fromLTRB(14, 6, 2, 6),
       child: Row(
         children: [
           Container(

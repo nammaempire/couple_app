@@ -35,6 +35,16 @@ class Couple {
   /// ISO 4217 code used for shared expenses.
   final String currency;
 
+  /// When a partner last cleared the chat for both of you (server time).
+  /// Messages sent at or before it are deleted, and hidden until they are.
+  final DateTime? chatClearedAt;
+
+  /// Uid of the partner who last cleared the chat for both.
+  final String? chatClearedBy;
+
+  /// Shared switch: while on, both phones block screenshots of the chat.
+  final bool blockScreenshots;
+
   static const defaultCurrency = 'INR';
 
   const Couple({
@@ -49,6 +59,9 @@ class Couple {
     this.photoUrl,
     this.activatedAt,
     this.currency = defaultCurrency,
+    this.chatClearedAt,
+    this.chatClearedBy,
+    this.blockScreenshots = false,
   });
 
   /// What [uid] calls their partner, if they have set anything.
@@ -167,6 +180,9 @@ class Couple {
       photoUrl: data['photoUrl'] as String?,
       activatedAt: (data['activatedAt'] as Timestamp?)?.toDate(),
       currency: _nonBlank(data['currency'] as String?) ?? defaultCurrency,
+      chatClearedAt: (data['chatClearedAt'] as Timestamp?)?.toDate(),
+      chatClearedBy: data['chatClearedBy'] as String?,
+      blockScreenshots: (data['blockScreenshots'] as bool?) ?? false,
     );
   }
 

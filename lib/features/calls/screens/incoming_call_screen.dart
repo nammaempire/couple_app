@@ -11,6 +11,9 @@ import 'package:couple_app/features/calls/data/call_service.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
 import 'package:couple_app/features/calls/screens/call_screen.dart';
+import 'package:couple_app/core/widgets/entrance_animation.dart';
+import 'package:couple_app/core/widgets/glass.dart';
+import 'package:couple_app/features/calls/widgets/call_avatar_ring.dart';
 import 'package:couple_app/features/calls/widgets/call_backdrop.dart';
 import 'package:couple_app/features/calls/widgets/partner_initial_avatar.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
@@ -162,39 +165,63 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
               children: [
                 const Spacer(flex: 2),
 
-                PartnerInitialAvatar(
-                  name: partnerName,
+                CallAvatarRing(
                   size: 128,
-                  fontSize: 50,
-                ),
-                const SizedBox(height: 24),
-
-                Text(
-                  partnerName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
+                  pulse: !_answering,
+                  child: PartnerInitialAvatar(
+                    name: partnerName,
+                    size: 128,
+                    fontSize: 50,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isVideo ? Icons.videocam : Icons.call,
-                      size: 16,
-                      color: Colors.white.withValues(alpha: .7),
+                const SizedBox(height: 12),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    partnerName,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: .2,
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isVideo ? 'Incoming video call' : 'Incoming voice call',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: .7),
-                        fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GlassPanel(
+                  dark: true,
+                  radius: 30,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isVideo ? Icons.videocam : Icons.call,
+                        size: 16,
+                        color: Colors.white.withValues(alpha: .9),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          isVideo
+                              ? 'Incoming video call'
+                              : 'Incoming voice call',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: .92),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
                 const Spacer(flex: 3),
@@ -207,13 +234,14 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
                       _AnswerButton(
                         icon: Icons.call_end,
                         label: 'Decline',
-                        color: const Color(0xFFE23D50),
+                        colors: const [Color(0xFFFF5F6D), Color(0xFFD7263D)],
                         onPressed: _answering ? null : _decline,
                       ),
                       _AnswerButton(
                         icon: isVideo ? Icons.videocam : Icons.call,
                         label: 'Accept',
-                        color: const Color(0xFF3BBF6B),
+                        colors: const [Color(0xFF4ADE80), Color(0xFF16A34A)],
+                        glow: !_answering,
                         onPressed: _answering ? null : _accept,
                       ),
                     ],
@@ -233,38 +261,65 @@ class _AnswerButton extends StatelessWidget {
   const _AnswerButton({
     required this.icon,
     required this.label,
-    required this.color,
+    required this.colors,
     required this.onPressed,
+    this.glow = false,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+  final List<Color> colors;
   final VoidCallback? onPressed;
+
+  /// Gently breathe a halo, to invite the tap.
+  final bool glow;
 
   @override
   Widget build(BuildContext context) {
+    final button = GlassCallButton(
+      icon: icon,
+      colors: colors,
+      size: 74,
+      iconSize: 32,
+      onPressed: onPressed,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          color: color,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Icon(icon, color: Colors.white, size: 32),
-            ),
+        SizedBox.square(
+          dimension: 92,
+          child: Center(
+            child: glow
+                ? RepaintBoundary(
+                    child: Pulse(
+                      child: button,
+                      builder: (context, v, child) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.first.withValues(
+                                alpha: .25 + .3 * v,
+                              ),
+                              blurRadius: 12 + 14 * v,
+                              spreadRadius: 2 + 6 * v,
+                            ),
+                          ],
+                        ),
+                        child: child,
+                      ),
+                    ),
+                  )
+                : button,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: .8),
+            color: Colors.white.withValues(alpha: .9),
             fontSize: 14,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

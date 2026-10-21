@@ -12,6 +12,7 @@ import 'package:couple_app/features/memories/widgets/memories_empty_state.dart';
 import 'package:couple_app/features/memories/widgets/memory_card.dart';
 import 'package:couple_app/features/memories/widgets/memory_filter_chips.dart';
 import 'package:couple_app/features/memories/widgets/memory_highlights.dart';
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 
 /// The Memories tab: a timeline of shared moments, with albums, favourites,
 /// search and a monthly recap.
@@ -207,52 +208,40 @@ class _MemoriesScreenState extends ConsumerState<MemoriesScreen> {
     List<Memory> memories,
     List<String> albums,
   ) {
-    final theme = Theme.of(context);
     final groups = <String, List<Memory>>{};
     for (final m in memories) {
       groups.putIfAbsent(DateFormat.yMMMM().format(m.date), () => []).add(m);
     }
 
+    var index = 0;
     return [
       for (final entry in groups.entries) ...[
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(
-              children: [
-                Text(
-                  entry.key,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${entry.value.length}',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
+          child: SoftSectionHeader(
+            label: entry.key,
+            count: entry.value.length,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
           ),
         ),
-        SliverList.builder(
-          itemCount: entry.value.length,
-          itemBuilder: (context, i) {
-            final memory = entry.value[i];
-            return MemoryCard(
-              memory: memory,
-              onTap: () => _openDetail(memory, albums),
-              onToggleFavourite: () => ref
-                  .read(memoryServiceProvider)
-                  .setFavorite(
-                    coupleId: _coupleId,
-                    memoryId: memory.id,
-                    favorite: !memory.favorite,
-                  ),
-            );
-          },
+        SliverList.list(
+          children: [
+            for (final memory in entry.value)
+              stagger(
+                index++,
+                key: ValueKey(memory.id),
+                MemoryCard(
+                  memory: memory,
+                  onTap: () => _openDetail(memory, albums),
+                  onToggleFavourite: () => ref
+                      .read(memoryServiceProvider)
+                      .setFavorite(
+                        coupleId: _coupleId,
+                        memoryId: memory.id,
+                        favorite: !memory.favorite,
+                      ),
+                ),
+              ),
+          ],
         ),
       ],
     ];

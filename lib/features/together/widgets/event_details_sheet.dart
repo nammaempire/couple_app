@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/features/plans/widgets/soft_kit.dart';
 import 'package:couple_app/features/together/models/calendar_event.dart';
+import 'package:couple_app/features/together/widgets/calendar_event_look.dart';
 
 /// Bottom sheet with an event's details. Pops with 'edit' or 'delete'.
 class EventDetailsSheet extends StatelessWidget {
@@ -20,6 +22,8 @@ class EventDetailsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final end = event.end;
+    final b = theme.brightness;
+    final preset = event.type.preset;
 
     String dateLine() {
       final date = DateFormat.yMMMMEEEEd().format(when);
@@ -40,7 +44,7 @@ class EventDetailsSheet extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: theme.colorScheme.primary),
+          Icon(icon, size: 20, color: preset.accent(b)),
           const SizedBox(width: 12),
           Expanded(child: Text(text, style: theme.textTheme.bodyLarge)),
         ],
@@ -54,11 +58,44 @@ class EventDetailsSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '${event.type.emoji}  '
-              '${event.title.isEmpty ? event.type.label : event.title}',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(22),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: preset.colors(b),
+                ),
+              ),
+              child: Row(
+                children: [
+                  EmojiBadge(emoji: event.type.emoji, preset: preset, size: 48),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event.type.label.toUpperCase(),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: presetAccentText(preset, b),
+                            letterSpacing: 1.2,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          event.title.isEmpty ? event.type.label : event.title,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: preset.foreground(b),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -97,6 +134,7 @@ class EventDetailsSheet extends StatelessWidget {
                       label: const Text('Delete'),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
+                        shape: const StadiumBorder(),
                       ),
                     ),
                   ),
@@ -106,6 +144,10 @@ class EventDetailsSheet extends StatelessWidget {
                       onPressed: () => Navigator.pop(context, 'edit'),
                       icon: const Icon(Icons.edit_outlined),
                       label: const Text('Edit'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                        shape: const StadiumBorder(),
+                      ),
                     ),
                   ),
                 ],

@@ -19,15 +19,29 @@ class ExpenseMonthHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          Text(
+            DateFormat.yMMMM().format(DateTime(month.year, month.month)),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              DateFormat.yMMMM().format(DateTime(month.year, month.month)),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+            child: Container(
+              height: 1.2,
+              margin: const EdgeInsets.only(bottom: 6, right: 12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary.withValues(alpha: .35),
+                    theme.colorScheme.primary.withValues(alpha: 0),
+                  ],
+                ),
               ),
             ),
           ),
