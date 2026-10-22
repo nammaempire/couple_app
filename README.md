@@ -96,6 +96,32 @@ flutter run
 
 ---
 
+## Release build and app size
+
+Build the Play Store bundle with:
+
+```
+flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
+```
+
+Google Play then delivers only the parts each phone needs. Measured on
+22 Oct 2026 (64-bit ARM phone): about **73 MB installed, ~33 MB download**,
+down from 271 MB before trimming. What keeps it small:
+- `android/app/build.gradle.kts` leaves out Agora's optional extensions
+  (virtual background, lip sync, spatial audio, AI noise suppression, face
+  detection, beauty, screen share…). If you add one of those features,
+  remove its line from `packaging.jniLibs.excludes`.
+- R8 shrinking is on for release (`isMinifyEnabled`, `isShrinkResources`);
+  keep rules are in `android/app/proguard-rules.pro`. Test calls on a real
+  phone after upgrading Agora.
+- The QR scanner uses Google Play services' model
+  (`dev.steenbakker.mobile_scanner.useUnbundled=true` in
+  `android/gradle.properties`).
+- Keep `build/symbols` from each release to read crash stack traces.
+
+Biggest remaining parts: the Agora calling engine (~37 MB of the install),
+the Flutter engine (~12 MB) and the app's own code (~12 MB).
+
 ## Onboarding flow
 
 `AuthGate` moves each person through these steps from Firestore state alone,

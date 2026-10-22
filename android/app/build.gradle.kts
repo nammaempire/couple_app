@@ -61,8 +61,39 @@ android {
             } else {
                 signingConfigs.getByName("debug")
             }
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8: removes unused Java/Kotlin code and resources. Keep rules
+            // for the calling SDK are in proguard-rules.pro.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    packaging {
+        jniLibs {
+            // Agora ships optional extensions this app never turns on
+            // (calls use plain audio/video only). Each is 1-10 MB per CPU type.
+            // If one of these features is ever added, remove its line.
+            excludes += listOf(
+                "**/libagora_clear_vision_extension.so",      // video enhancement
+                "**/libagora_lip_sync_extension.so",          // lip sync avatars
+                "**/libagora_spatial_audio_extension.so",     // 3D audio
+                "**/libagora_ai_noise_suppression_extension.so",
+                "**/libagora_ai_noise_suppression_ll_extension.so",
+                "**/libagora_ai_echo_cancellation_extension.so",
+                "**/libagora_ai_echo_cancellation_ll_extension.so",
+                "**/libagora_segmentation_extension.so",      // virtual background
+                "**/libagora_face_capture_extension.so",
+                "**/libagora_face_detection_extension.so",
+                "**/libagora_audio_beauty_extension.so",      // voice effects
+                "**/libagora_content_inspect_extension.so",   // moderation
+                "**/libagora_video_av1_encoder_extension.so",
+                "**/libagora_video_quality_analyzer_extension.so",
+                "**/libagora_screen_capture_extension.so",    // screen sharing
+            )
         }
     }
 }
@@ -80,8 +111,4 @@ flutter {
 dependencies {
     // Java 8+ time APIs on older Android, for scheduled reminders.
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // AppCompat themes (styles.xml) for the app lock's biometric prompt.
-    // local_auth only brings it in as a runtime dependency of
-    // androidx.biometric, so it is declared here for the theme resources.
-    implementation("androidx.appcompat:appcompat:1.8.0")
 }

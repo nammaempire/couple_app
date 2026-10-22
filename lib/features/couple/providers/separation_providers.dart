@@ -43,11 +43,6 @@ final separationActiveProvider = Provider.autoDispose<bool>(
       ref.watch(coupleProvider.select((c) => c.value?.isSeparating ?? false)),
 );
 
-/// The server is deleting everything right now (`couples/{id}.ending`).
-final pairingEndingProvider = Provider.autoDispose<bool>(
-  (ref) => ref.watch(coupleProvider.select((c) => c.value?.ending != null)),
-);
-
 /// "Mute my partner": no alerts, banners or badges for their activity, and
 /// their calls are not rung.
 final mutePartnerProvider = Provider.autoDispose<bool>(

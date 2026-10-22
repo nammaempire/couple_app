@@ -11,8 +11,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
-
   # State management
   flutter_riverpod: ^3.4.3
 
@@ -108,3 +106,13 @@ flutter:
   assets:
     # Fonts embedded in memory book PDFs (licences in the folder).
     - assets/fonts/book/
+    # The app icon, for the splash screen.
+    - assets/branding/app_icon.png
+
+  fonts:
+    # The "Us" wordmark on the splash (same font as the Memory book).
+    - family: UsSerif
+      fonts:
+        - asset: assets/fonts/book/NotoSerif-BoldItalic.ttf
+          weight: 700
+          style: italic

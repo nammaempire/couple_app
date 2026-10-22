@@ -43,9 +43,10 @@
          keystore and can't move to another phone, and its encrypted copy in
          app storage must not leave this one (flutter_secure_storage). -->
     <application
-        android:label="couple_app"
+        android:label="Us"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules">

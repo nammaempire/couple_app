@@ -1,12 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Native splash before Flutter starts (Android 11 and older): blush in
+     light mode, night purple in dark mode, with the app icon centred. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item android:drawable="@color/splash_background"/>
+    <item>
+        <bitmap android:gravity="center" android:src="@drawable/splash_logo"/>
+    </item>
 </layer-list>
