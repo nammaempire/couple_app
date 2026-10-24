@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:couple_app/features/calls/models/call_session.dart';
@@ -8,10 +8,9 @@ import 'package:couple_app/features/calls/models/call_session.dart';
 /// Both phones watch one document; each state change (ring, accept, decline,
 /// hang up) is a write both sides see. No dedicated signalling server needed.
 class CallService {
-  CallService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  CallService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
   static final _uuid = Uuid();
 
   DocumentReference<Map<String, dynamic>> _callDoc(String coupleId) =>
@@ -97,7 +96,7 @@ class CallService {
       await _callDoc(
         coupleId,
       ).update({'status': 'ended', 'endedAt': FieldValue.serverTimestamp()});
-    } on FirebaseException catch (e) {
+    } on DbException catch (e) {
       // Nothing to end is not a failure worth surfacing to the user.
       if (e.code != 'not-found') rethrow;
     }

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/play/models/game.dart';
 
@@ -18,10 +18,9 @@ class GameMoveException implements Exception {
 /// the game is still in the state the caller saw and bumps `moveCount`, so
 /// two phones can never both apply a move.
 class GameService {
-  GameService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  GameService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _games(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('games');

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/auth/data/phone_number_service.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
@@ -31,14 +31,14 @@ class PairByNumberSent extends PairByNumberOutcome {
 /// paired".
 class PairRequestService {
   PairRequestService({
-    FirebaseFirestore? firestore,
+    Db? db,
     CoupleService? couples,
     PhoneNumberService? phones,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       _couples = couples ?? CoupleService(firestore: firestore),
-       _phones = phones ?? PhoneNumberService(firestore: firestore);
+  }) : _db = db ?? Db.instance,
+       _couples = couples ?? CoupleService(db: db),
+       _phones = phones ?? PhoneNumberService(db: db);
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final CoupleService _couples;
   final PhoneNumberService _phones;
 

@@ -1,0 +1,36 @@
+{
+  "name": "us-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Us app backend: REST + WebSocket API on Postgres and an S3-compatible bucket. Sign-in stays on Firebase Auth.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "migrate": "node dist/migrate.js",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts",
+    "import-firebase": "tsx scripts/import-from-firebase.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.726.1",
+    "@aws-sdk/lib-storage": "^3.726.1",
+    "@aws-sdk/s3-request-presigner": "^3.726.1",
+    "@fastify/websocket": "^11.0.2",
+    "fastify": "^5.2.1",
+    "firebase-admin": "^13.0.2",
+    "google-auth-library": "^9.15.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,5 +1,5 @@
 // Fakes for the music feature, shared by its widget tests (and usable by
-// screenshot tests): no Firestore, no web view, no network.
+// screenshot tests): no database, no web view, no network.
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -14,7 +14,7 @@ import 'package:couple_app/features/music/models/song.dart';
 import 'package:couple_app/features/music/models/song_link.dart';
 import 'package:couple_app/features/music/widgets/song_artwork.dart';
 
-/// Records calls instead of touching Firestore. Songs and the session are
+/// Records calls instead of touching the database. Songs and the session are
 /// set directly; [nowMs] is the server clock.
 ///
 /// Its videos shelf ([videos], what `forShelf(MediaShelf.videos)` returns)

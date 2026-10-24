@@ -1,15 +1,14 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:uuid/uuid.dart';
 
-/// Uploads chat media and profile pictures to Firebase Storage.
+/// Uploads chat media and profile pictures to the Us server's file storage.
 class StorageService {
-  StorageService({FirebaseStorage? storage})
-    : _storage = storage ?? FirebaseStorage.instance;
+  StorageService({Files? files}) : _storage = files ?? Files.instance;
 
-  final FirebaseStorage _storage;
+  final Files _storage;
   static final _uuid = Uuid();
 
   /// Uploads [file] and returns its public download URL.

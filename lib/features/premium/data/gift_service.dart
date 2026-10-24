@@ -1,14 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/premium/models/gift.dart';
 
 /// Gifts between the partners. The server creates them; the recipient
 /// only marks one opened.
 class GiftService {
-  GiftService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  GiftService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _gifts(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('gifts');

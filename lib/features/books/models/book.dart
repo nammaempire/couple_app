@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// A finished memory book: `couples/{cid}/books/{bookId}`, with its PDF at
 /// [storagePath].

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/music/data/media_shelf.dart';
 import 'package:couple_app/features/music/data/server_clock.dart';
@@ -18,14 +18,11 @@ class ListeningException implements Exception {
 /// session: songs (`couples/{id}/songs`, `couples/{id}/listening/now`) or
 /// videos (`couples/{id}/videos`, `couples/{id}/watching/now`).
 class MusicService {
-  MusicService({
-    FirebaseFirestore? firestore,
-    ServerClock? clock,
-    this.shelf = MediaShelf.songs,
-  }) : _db = firestore ?? FirebaseFirestore.instance,
-       clock = clock ?? ServerClock();
+  MusicService({Db? db, ServerClock? clock, this.shelf = MediaShelf.songs})
+    : _db = db ?? Db.instance,
+      clock = clock ?? ServerClock();
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   /// Server time on this phone, shared by everything that syncs playback.
   final ServerClock clock;
@@ -35,9 +32,8 @@ class MusicService {
 
   /// The same service for another shelf, sharing the database and clock
   /// (one calibration serves both).
-  MusicService forShelf(MediaShelf other) => other == shelf
-      ? this
-      : MusicService(firestore: _db, clock: clock, shelf: other);
+  MusicService forShelf(MediaShelf other) =>
+      other == shelf ? this : MusicService(db: _db, clock: clock, shelf: other);
 
   CollectionReference<Map<String, dynamic>> _songs(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection(shelf.items);

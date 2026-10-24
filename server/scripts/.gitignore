@@ -1,0 +1,5 @@
+# Never commit the Firebase key or the import settings.
+*.json
+!tsconfig.json
+*.env
+.env*

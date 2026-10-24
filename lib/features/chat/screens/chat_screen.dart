@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -382,14 +381,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
     } on ChatException catch (e) {
       if (!mounted) return;
       context.showSnackMessage(e.message);
-    } on FirebaseException catch (e) {
-      // Storage is optional: the app is usable for text before it is enabled.
-      if (!mounted) return;
-      context.showSnackMessage(
-        e.plugin == 'firebase_storage'
-            ? 'Sending media needs Firebase Storage enabled on this project.'
-            : 'Could not send. Check your connection.',
-      );
     } catch (e) {
       if (!mounted) return;
       context.showSnackMessage('Could not send. Check your connection.');

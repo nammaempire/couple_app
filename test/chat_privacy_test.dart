@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/backend/memory_backend.dart';
 import 'package:couple_app/core/providers/core_providers.dart';
 import 'package:couple_app/core/services/screen_privacy.dart';
 import 'package:couple_app/core/services/storage_service.dart';
@@ -31,7 +31,7 @@ const me = 'asha';
 const partner = 'ravi';
 const coupleId = 'c1';
 
-/// Records deletes instead of touching Firebase Storage.
+/// Records deletes instead of touching file storage.
 class _FakeStorage implements StorageService {
   final deleted = <String>[];
 
@@ -69,13 +69,10 @@ class _FakeSecurity implements ScreenSecurity {
 
 final _clearedAt = DateTime(2026, 10, 1, 12);
 
-CollectionReference<Map<String, dynamic>> _messages(FakeFirebaseFirestore db) =>
+CollectionReference<Map<String, dynamic>> _messages(Db db) =>
     db.collection('couples').doc(coupleId).collection('messages');
 
-Future<void> _seedCouple(
-  FakeFirebaseFirestore db, {
-  bool blockScreenshots = false,
-}) async {
+Future<void> _seedCouple(Db db, {bool blockScreenshots = false}) async {
   await db.collection('couples').doc(coupleId).set({
     'inviteCode': 'ABC123',
     'memberIds': [me, partner],
@@ -89,7 +86,7 @@ Future<void> _seedCouple(
 }
 
 Future<void> _addMessage(
-  FakeFirebaseFirestore db, {
+  Db db, {
   required String text,
   required DateTime sentAt,
   String senderId = me,
@@ -112,7 +109,7 @@ Future<void> _addMessage(
 }
 
 /// The conversation as stored, oldest first.
-Future<List<Message>> _stored(FakeFirebaseFirestore db) async {
+Future<List<Message>> _stored(Db db) async {
   final snap = await _messages(db).orderBy('sentAt').get();
   return snap.docs.map(Message.fromDoc).toList();
 }
@@ -120,7 +117,7 @@ Future<List<Message>> _stored(FakeFirebaseFirestore db) async {
 class _Harness {
   _Harness(this.db, this.storage, this.detector, this.security);
 
-  final FakeFirebaseFirestore db;
+  final Db db;
   final _FakeStorage storage;
   final _FakeDetector detector;
   final _FakeSecurity security;
@@ -128,9 +125,9 @@ class _Harness {
 
 List<Override> _overrides(_Harness h, {DateTime? myClearedAt}) => [
   chatServiceProvider.overrideWithValue(
-    ChatService(firestore: h.db, storage: h.storage),
+    ChatService(db: h.db, storage: h.storage),
   ),
-  coupleServiceProvider.overrideWithValue(CoupleService(firestore: h.db)),
+  coupleServiceProvider.overrideWithValue(CoupleService(db: h.db)),
   currentUserProvider.overrideWithBuild(
     (ref, n) => AppUser(
       uid: me,
@@ -150,14 +147,14 @@ Future<_Harness> _pumpChat(
   DateTime? myClearedAt,
   bool isActive = true,
   bool blockScreenshots = false,
-  Future<void> Function(FakeFirebaseFirestore db)? seed,
+  Future<void> Function(Db db)? seed,
 }) async {
   tester.view.physicalSize = const Size(360 * 3, 740 * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
 
   final h = _Harness(
-    FakeFirebaseFirestore(),
+    Db(MemoryBackend()),
     _FakeStorage(),
     _FakeDetector(),
     _FakeSecurity(),
@@ -186,10 +183,6 @@ Future<void> _openMenuItem(WidgetTester tester, String label) async {
 }
 
 void main() {
-  // Installs the fake FieldValue factory before any test builds a
-  // server timestamp; otherwise the method-channel one sticks.
-  setUpAll(FakeFirebaseFirestore.new);
-
   group('Message system types', () {
     test('parse, store text without media, and stay seen', () {
       const alert = Message(
@@ -243,14 +236,14 @@ void main() {
   });
 
   group('ChatService', () {
-    late FakeFirebaseFirestore db;
+    late Db db;
     late _FakeStorage storage;
     late ChatService chat;
 
     setUp(() async {
-      db = FakeFirebaseFirestore();
+      db = Db(MemoryBackend());
       storage = _FakeStorage();
-      chat = ChatService(firestore: db, storage: storage);
+      chat = ChatService(db: db, storage: storage);
       await _seedCouple(db);
     });
 
@@ -879,7 +872,7 @@ void main() {
 
   testWidgets('search ignores messages hidden by clear for me', (tester) async {
     final h = _Harness(
-      FakeFirebaseFirestore(),
+      Db(MemoryBackend()),
       _FakeStorage(),
       _FakeDetector(),
       _FakeSecurity(),

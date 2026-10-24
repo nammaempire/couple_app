@@ -1,14 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/home/models/love_tap.dart';
 import 'package:couple_app/features/home/models/nudge.dart';
 
 /// Sends and listens for nudges at `couples/{coupleId}/nudges`.
 class NudgeService {
-  NudgeService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  NudgeService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _nudges(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('nudges');

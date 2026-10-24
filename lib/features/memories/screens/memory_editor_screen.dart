@@ -296,8 +296,7 @@ class _MemoryEditorScreenState extends ConsumerState<MemoryEditorScreen> {
       if (mounted) {
         setState(
           () => _error =
-              'Could not save. Check your connection and '
-              'that Firebase Storage is enabled.',
+              'Could not save. Check your connection and try again.',
         );
       }
     } finally {

@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/backend/memory_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:couple_app/features/vault/data/vault_crypto.dart';
@@ -10,12 +10,12 @@ import 'package:couple_app/features/vault/models/vault_event.dart';
 import 'package:couple_app/features/vault/models/vault_item.dart';
 import 'package:couple_app/features/vault/models/vault_meta.dart';
 
-/// The real VaultService against an in-memory Firestore and file store.
+/// The real VaultService against an in-memory database and file store.
 void main() {
   const cid = 'c1';
   const asha = 'asha';
   const ravi = 'ravi';
-  late FakeFirebaseFirestore db;
+  late Db db;
   late MemoryVaultBlobStore blobs;
   late VaultService service;
 
@@ -38,7 +38,9 @@ void main() {
       (await service.metaRef(cid).get()).data()!;
 
   Future<List<Map<String, dynamic>>> events() async =>
-      (await service.eventsRef(cid).get()).docs.map((d) => d.data()).toList();
+      (await service.eventsRef(cid).orderBy('at').get()).docs
+          .map((d) => d.data())
+          .toList();
 
   Future<void> createVault() => service.createVault(
     cid: cid,
@@ -49,9 +51,9 @@ void main() {
   );
 
   setUp(() {
-    db = FakeFirebaseFirestore();
+    db = Db(MemoryBackend());
     blobs = MemoryVaultBlobStore();
-    service = VaultService(firestore: db, blobs: blobs);
+    service = VaultService(db: db, blobs: blobs);
   });
 
   group('setup and phones', () {

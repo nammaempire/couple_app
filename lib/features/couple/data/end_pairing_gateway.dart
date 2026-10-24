@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// Why the server couldn't end a pairing.
 enum EndPairingFailure {
@@ -69,20 +69,16 @@ abstract class EndPairingGateway {
 }
 
 /// [EndPairingGateway] through the `finalizeSeparation` and `leaveNow`
-/// callable functions in asia-south1.
+/// server functions.
 ///
 /// Both answer `{status: 'ended' | 'alreadyEnded' | 'inProgress', how}`.
 class FunctionsEndPairingGateway implements EndPairingGateway {
-  FunctionsEndPairingGateway([FirebaseFunctions? functions])
-    : _given = functions;
+  FunctionsEndPairingGateway([Functions? functions]) : _given = functions;
 
-  static const region = 'asia-south1';
+  final Functions? _given;
 
-  final FirebaseFunctions? _given;
-
-  /// Looked up on first use, so creating the gateway touches no plugin.
-  late final FirebaseFunctions _functions =
-      _given ?? FirebaseFunctions.instanceFor(region: region);
+  /// Looked up on first use, so creating the gateway needs no backend yet.
+  late final Functions _functions = _given ?? Functions.instance;
 
   @override
   Future<EndPairingResult> finalizeSeparation(String coupleId) =>
@@ -94,9 +90,9 @@ class FunctionsEndPairingGateway implements EndPairingGateway {
 
   Future<EndPairingResult> _call(String name, Map<String, Object?> data) async {
     try {
-      final result = await _functions.httpsCallable(name).call<Object?>(data);
-      return parseResult(result.data);
-    } on FirebaseFunctionsException catch (e) {
+      final result = await _functions.call(name, data);
+      return parseResult(result);
+    } on FunctionsException catch (e) {
       throw EndPairingException(
         failureForCode(e.code),
         e.message,
@@ -105,7 +101,7 @@ class FunctionsEndPairingGateway implements EndPairingGateway {
     } on EndPairingException {
       rethrow;
     } catch (e) {
-      // No plugin, no network, no server: try again later.
+      // No backend, no network, no server: try again later.
       throw EndPairingException(EndPairingFailure.unavailable, '$e');
     }
   }

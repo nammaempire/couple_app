@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// Where an ending pairing stands (`couples/{id}.separation.status`).
 enum SeparationStatus {

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -257,13 +256,6 @@ class _ChatAppearanceScreenState extends ConsumerState<ChatAppearanceScreen> {
       }
       _uploads[result.path] = result.url;
       _setPhoto(result.url, result.path);
-    } on FirebaseException catch (e) {
-      if (!mounted) return;
-      context.showSnackMessage(
-        e.plugin == 'firebase_storage'
-            ? 'Photo backgrounds need Firebase Storage enabled on this project.'
-            : 'Could not upload that photo. Check your connection.',
-      );
     } catch (_) {
       if (!mounted) return;
       context.showSnackMessage(

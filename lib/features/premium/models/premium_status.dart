@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// The couple's Premium (`couples/{cid}.premium`), written only by the
 /// server. One purchase covers both partners.

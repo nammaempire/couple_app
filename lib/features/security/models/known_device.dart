@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// How a phone passed sign-in protection (`users/{uid}/devices/{id}.via`).
 enum DeviceVia {

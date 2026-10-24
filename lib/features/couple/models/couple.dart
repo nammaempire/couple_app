@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/couple/models/separation.dart';
 import 'package:couple_app/features/premium/models/premium_status.dart';

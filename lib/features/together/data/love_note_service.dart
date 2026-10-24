@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:couple_app/features/together/models/love_note.dart';
@@ -20,13 +19,13 @@ class NoteSealedException implements Exception {
 /// letters are stored at `couples/{coupleId}/notes/{noteId}.m4a`; the app
 /// only reveals their link from inside the sealed content.
 class LoveNoteService {
-  LoveNoteService({FirebaseFirestore? firestore, FirebaseStorage? storage})
-    : _db = firestore ?? FirebaseFirestore.instance,
-      _storageOverride = storage;
+  LoveNoteService({Db? db, Files? files})
+    : _db = db ?? Db.instance,
+      _storageOverride = files;
 
-  final FirebaseFirestore _db;
-  final FirebaseStorage? _storageOverride;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
+  final Db _db;
+  final Files? _storageOverride;
+  Files get _storage => _storageOverride ?? Files.instance;
   static final _uuid = Uuid();
 
   CollectionReference<Map<String, dynamic>> _notes(String coupleId) =>
@@ -116,7 +115,7 @@ class LoveNoteService {
         body: (data['body'] as String?) ?? '',
         voiceUrl: data['voiceUrl'] as String?,
       );
-    } on FirebaseException catch (e) {
+    } on DbException catch (e) {
       if (e.code == 'permission-denied') {
         throw NoteSealedException(note.deliverAt);
       }

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/plans/models/wishlist_claim.dart';
 import 'package:couple_app/features/plans/models/wishlist_item.dart';
@@ -10,10 +10,9 @@ import 'package:couple_app/features/plans/models/wishlist_item.dart';
 /// the owner of an item never asks for (and the rules never return) a
 /// claim on their own wishes.
 class WishlistService {
-  WishlistService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  WishlistService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   DocumentReference<Map<String, dynamic>> _couple(String coupleId) =>
       _db.collection('couples').doc(coupleId);
@@ -106,7 +105,7 @@ class WishlistService {
         ...claim.toMap(),
         'claimedAt': FieldValue.serverTimestamp(),
       });
-    } on FirebaseException catch (e) {
+    } on DbException catch (e) {
       // Writing over an existing claim counts as an update, which the rules
       // refuse. If that claim is already mine (another device, a retry),
       // there is nothing to do.

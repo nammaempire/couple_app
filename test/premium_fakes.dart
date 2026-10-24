@@ -182,7 +182,7 @@ class PremiumRig {
   final files = FakeBookFileStore();
   final images = FakeBookImageSource();
 
-  BookService get books => BookService(firestore: pairing.db, files: files);
+  BookService get books => BookService(db: pairing.db, files: files);
 
   List<Override> overrides(String uid) => [
     ...pairing.overrides(uid),
@@ -190,7 +190,7 @@ class PremiumRig {
     purchaseVerifierProvider.overrideWithValue(verifier),
     pendingPurchaseStoreProvider.overrideWithValue(pending),
     premiumClockProvider.overrideWithValue(pairing.clock),
-    giftServiceProvider.overrideWithValue(GiftService(firestore: pairing.db)),
+    giftServiceProvider.overrideWithValue(GiftService(db: pairing.db)),
     bookServiceProvider.overrideWithValue(books),
     bookImageSourceProvider.overrideWithValue(images),
     bookFontsProvider.overrideWith((ref) => fonts),
@@ -200,16 +200,10 @@ class PremiumRig {
       (context, bytes, title) =>
           Center(child: Text('PDF $title · ${bytes.length} bytes')),
     ),
-    memoryServiceProvider.overrideWithValue(
-      MemoryService(firestore: pairing.db),
-    ),
-    loveNoteServiceProvider.overrideWithValue(
-      LoveNoteService(firestore: pairing.db),
-    ),
-    datePlanServiceProvider.overrideWithValue(
-      DatePlanService(firestore: pairing.db),
-    ),
-    gameServiceProvider.overrideWithValue(GameService(firestore: pairing.db)),
-    musicServiceProvider.overrideWithValue(MusicService(firestore: pairing.db)),
+    memoryServiceProvider.overrideWithValue(MemoryService(db: pairing.db)),
+    loveNoteServiceProvider.overrideWithValue(LoveNoteService(db: pairing.db)),
+    datePlanServiceProvider.overrideWithValue(DatePlanService(db: pairing.db)),
+    gameServiceProvider.overrideWithValue(GameService(db: pairing.db)),
+    musicServiceProvider.overrideWithValue(MusicService(db: pairing.db)),
   ];
 }

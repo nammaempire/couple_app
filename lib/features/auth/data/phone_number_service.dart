@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/auth/models/phone_number.dart';
 
@@ -8,10 +8,9 @@ import 'package:couple_app/features/auth/models/phone_number.dart';
 /// Only a number the signed-in account verified by SMS can be written; the
 /// rules compare both with the ID token's `phone_number`.
 class PhoneNumberService {
-  PhoneNumberService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  PhoneNumberService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   DocumentReference<Map<String, dynamic>> _index(String e164) =>
       _db.collection('phoneIndex').doc(e164);

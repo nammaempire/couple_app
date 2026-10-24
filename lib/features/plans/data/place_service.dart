@@ -1,13 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/plans/models/place.dart';
 
 /// Reads and writes `couples/{coupleId}/places`.
 class PlaceService {
-  PlaceService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  PlaceService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _places(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('places');

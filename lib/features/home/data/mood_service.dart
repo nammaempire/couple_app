@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/home/models/mood.dart';
 
@@ -7,10 +7,9 @@ import 'package:couple_app/features/home/models/mood.dart';
 /// Stored at `couples/{coupleId}/moods/{uid}` — one document each, overwritten
 /// on every check-in rather than appended, since only "now" matters.
 class MoodService {
-  MoodService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  MoodService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _moods(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('moods');

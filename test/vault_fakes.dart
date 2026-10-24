@@ -1,10 +1,11 @@
 // Fakes for the vault feature, shared by its tests (and usable by
-// screenshot tests): in-memory Firestore, files and keystore, fast
+// screenshot tests): in-memory database, files and keystore, fast
 // deterministic crypto, a hand-moved clock, and no camera or biometrics.
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/backend/memory_backend.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override, ProviderListenable;
 import 'package:image/image.dart' as img;
@@ -125,16 +126,16 @@ class VaultTestPhone {
 
 /// Shared backend for one or more phones.
 class VaultTestRig {
-  VaultTestRig({FakeFirebaseFirestore? db})
-    : db = db ?? FakeFirebaseFirestore(),
+  VaultTestRig({Db? db})
+    : db = db ?? Db(MemoryBackend()),
       blobs = MemoryVaultBlobStore(),
       clock = VaultTestClock(),
       biometrics = FakeVaultBiometrics(),
       photos = FakeVaultPhotoSource() {
-    service = VaultService(firestore: this.db, blobs: blobs);
+    service = VaultService(db: this.db, blobs: blobs);
   }
 
-  final FakeFirebaseFirestore db;
+  final Db db;
   final MemoryVaultBlobStore blobs;
   final VaultTestClock clock;
   final FakeVaultBiometrics biometrics;
@@ -222,7 +223,7 @@ class VaultTestRig {
     return identity;
   }
 
-  /// Adds an encrypted message straight to Firestore.
+  /// Adds an encrypted message straight to the database.
   Future<String> seedMessage({
     required VaultCrypto crypto,
     required Uint8List shelfKey,
@@ -249,7 +250,7 @@ class VaultTestRig {
     return id;
   }
 
-  /// Adds an encrypted photo straight to Firestore and the file store.
+  /// Adds an encrypted photo straight to the database and the file store.
   Future<String> seedPhoto({
     required VaultCrypto crypto,
     required Uint8List shelfKey,
@@ -289,7 +290,7 @@ class VaultTestRig {
   }
 }
 
-/// Lets fake Firestore streams and async loads settle outside widget tests.
+/// Lets in-memory database streams and async loads settle outside widget tests.
 Future<void> settleAsync([int rounds = 20]) async {
   for (var i = 0; i < rounds; i++) {
     await Future<void>.delayed(Duration.zero);

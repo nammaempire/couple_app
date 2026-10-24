@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data' show BytesBuilder;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import 'package:couple_app/features/vault/data/vault_crypto.dart'
@@ -29,13 +31,16 @@ abstract class VaultBlobStore {
   Future<void> delete(String path);
 }
 
-/// [VaultBlobStore] on Firebase Storage. Files are opaque
+/// [VaultBlobStore] on the Us server's file store. Files are opaque
 /// `application/octet-stream`.
-class FirebaseVaultBlobStore implements VaultBlobStore {
-  FirebaseVaultBlobStore([FirebaseStorage? storage])
-    : _storage = storage ?? FirebaseStorage.instance;
+class FilesVaultBlobStore implements VaultBlobStore {
+  FilesVaultBlobStore([Files? files, http.Client? httpClient])
+    : _given = files,
+      _http = httpClient;
 
-  final FirebaseStorage _storage;
+  final Files? _given;
+  final http.Client? _http;
+  Files get _storage => _given ?? Files.instance;
 
   @override
   Future<void> put(
@@ -66,18 +71,64 @@ class FirebaseVaultBlobStore implements VaultBlobStore {
 
   @override
   Future<Uint8List> get(String path) async {
-    final data = await _storage.ref(path).getData(VaultService.maxFileBytes);
-    if (data == null) throw StateError('Missing vault file');
-    return data;
+    return _downloadBytes(
+      _storage.ref(path),
+      VaultService.maxFileBytes,
+      httpClient: _http,
+    );
   }
 
   @override
   Future<void> delete(String path) async {
     try {
       await _storage.ref(path).delete();
-    } on FirebaseException catch (e) {
-      if (e.code != 'object-not-found') rethrow;
+    } on DbException catch (e) {
+      if (e.code != 'not-found') rethrow;
     }
+  }
+}
+
+/// Downloads [ref] into memory (was Firebase Storage's `getData`): asks the
+/// server for its download link, which checks the storage rules, then reads
+/// the bytes. Fails if the file is larger than [maxBytes].
+Future<Uint8List> _downloadBytes(
+  FileRef ref,
+  int maxBytes, {
+  http.Client? httpClient,
+}) async {
+  final url = await ref.getDownloadURL();
+  final client = httpClient ?? http.Client();
+  try {
+    final http.StreamedResponse res;
+    try {
+      res = await client.send(http.Request('GET', Uri.parse(url)));
+    } on SocketException catch (e) {
+      throw DbException(
+        'unavailable',
+        'Download failed: no connection. ${e.message}',
+      );
+    } on http.ClientException catch (e) {
+      throw DbException('unavailable', 'Download failed: ${e.message}');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      ApiClient.decodeResponse(
+        res.statusCode,
+        await res.stream.bytesToString(),
+      );
+    }
+    final out = BytesBuilder(copy: false);
+    await for (final chunk in res.stream) {
+      out.add(chunk);
+      if (out.length > maxBytes) {
+        throw DbException(
+          'out-of-range',
+          'File is larger than $maxBytes bytes.',
+        );
+      }
+    }
+    return out.takeBytes();
+  } finally {
+    if (httpClient == null) client.close();
   }
 }
 
@@ -130,11 +181,11 @@ class VaultDeviceLimitException implements Exception {
 /// - `couples/{cid}/vault/meta`: phones, sealed keys and the verifier.
 /// - `couples/{cid}/vaultItems/{id}`: photos and messages.
 /// - `couples/{cid}/vaultEvents/{id}`: alerts for the other partner.
-/// - Storage `couples/{cid}/vault/{fileId}`: encrypted photos.
+/// - Files `couples/{cid}/vault/{fileId}`: encrypted photos.
 class VaultService {
-  VaultService({FirebaseFirestore? firestore, VaultBlobStore? blobs})
-    : _db = firestore ?? FirebaseFirestore.instance,
-      blobs = blobs ?? FirebaseVaultBlobStore();
+  VaultService({Db? db, VaultBlobStore? blobs})
+    : _db = db ?? Db.instance,
+      blobs = blobs ?? FilesVaultBlobStore();
 
   /// Files must be smaller than 15 MB.
   static const maxFileBytes = 15 * 1024 * 1024 - 1;
@@ -145,7 +196,7 @@ class VaultService {
   static const _maxNameLength = 60;
   static final _uuid = Uuid();
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final VaultBlobStore blobs;
 
   DocumentReference<Map<String, dynamic>> _couple(String cid) =>

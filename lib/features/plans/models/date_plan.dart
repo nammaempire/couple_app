@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/together/models/calendar_event.dart';

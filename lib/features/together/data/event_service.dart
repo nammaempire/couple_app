@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
@@ -8,10 +8,9 @@ import 'package:couple_app/features/together/models/calendar_event.dart';
 
 /// Reads and writes `couples/{coupleId}/events`.
 class EventService {
-  EventService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  EventService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _events(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('events');

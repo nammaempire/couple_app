@@ -1,7 +1,8 @@
+import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:http/http.dart' as http;
 
 import 'package:couple_app/features/books/models/book.dart';
 
@@ -20,12 +21,15 @@ abstract class BookFileStore {
   Future<void> delete(String path);
 }
 
-/// [BookFileStore] in Firebase Storage (`application/pdf`, < 50 MB).
+/// [BookFileStore] in the Us server's file store (`application/pdf`, < 50 MB).
 class StorageBookFileStore implements BookFileStore {
-  StorageBookFileStore([FirebaseStorage? storage]) : _given = storage;
+  StorageBookFileStore([Files? files, http.Client? httpClient])
+    : _given = files,
+      _http = httpClient;
 
-  final FirebaseStorage? _given;
-  FirebaseStorage get _storage => _given ?? FirebaseStorage.instance;
+  final Files? _given;
+  final http.Client? _http;
+  Files get _storage => _given ?? Files.instance;
 
   static const maxBytes = 50 * 1024 * 1024;
 
@@ -41,18 +45,60 @@ class StorageBookFileStore implements BookFileStore {
 
   @override
   Future<Uint8List> read(String path) async {
-    final data = await _storage.ref(path).getData(maxBytes);
-    if (data == null) throw BookException('This book couldn\'t be opened.');
-    return data;
+    return _downloadBytes(_storage.ref(path), maxBytes, httpClient: _http);
   }
 
   @override
   Future<void> delete(String path) async {
     try {
       await _storage.ref(path).delete();
-    } on FirebaseException catch (e) {
-      if (e.code != 'object-not-found') rethrow;
+    } on DbException catch (e) {
+      if (e.code != 'not-found') rethrow;
     }
+  }
+}
+
+/// Downloads [ref] into memory (was Firebase Storage's `getData`): asks the
+/// server for its download link, which checks the storage rules, then reads
+/// the bytes. Fails if the file is larger than [maxBytes].
+Future<Uint8List> _downloadBytes(
+  FileRef ref,
+  int maxBytes, {
+  http.Client? httpClient,
+}) async {
+  final url = await ref.getDownloadURL();
+  final client = httpClient ?? http.Client();
+  try {
+    final http.StreamedResponse res;
+    try {
+      res = await client.send(http.Request('GET', Uri.parse(url)));
+    } on SocketException catch (e) {
+      throw DbException(
+        'unavailable',
+        'Download failed: no connection. ${e.message}',
+      );
+    } on http.ClientException catch (e) {
+      throw DbException('unavailable', 'Download failed: ${e.message}');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      ApiClient.decodeResponse(
+        res.statusCode,
+        await res.stream.bytesToString(),
+      );
+    }
+    final out = BytesBuilder(copy: false);
+    await for (final chunk in res.stream) {
+      out.add(chunk);
+      if (out.length > maxBytes) {
+        throw DbException(
+          'out-of-range',
+          'File is larger than $maxBytes bytes.',
+        );
+      }
+    }
+    return out.takeBytes();
+  } finally {
+    if (httpClient == null) client.close();
   }
 }
 
@@ -63,11 +109,11 @@ class StorageBookFileStore implements BookFileStore {
 /// uploaded: `bookCredits` goes down by exactly one in the same batch that
 /// creates the book document, as the rules require.
 class BookService {
-  BookService({FirebaseFirestore? firestore, BookFileStore? files})
-    : _db = firestore ?? FirebaseFirestore.instance,
+  BookService({Db? db, BookFileStore? files})
+    : _db = db ?? Db.instance,
       _files = files ?? StorageBookFileStore();
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final BookFileStore _files;
 
   DocumentReference<Map<String, dynamic>> _couple(String coupleId) =>

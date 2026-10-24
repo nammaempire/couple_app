@@ -2,9 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:fc_native_video_thumbnail/fc_native_video_thumbnail.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:couple_app/features/memories/models/memory.dart';
@@ -33,13 +32,13 @@ class MemoryException implements Exception {
 /// Reads and writes `couples/{coupleId}/memories`, with media stored under
 /// `couples/{coupleId}/memories/` in Storage.
 class MemoryService {
-  MemoryService({FirebaseFirestore? firestore, FirebaseStorage? storage})
-    : _db = firestore ?? FirebaseFirestore.instance,
-      _storageOverride = storage;
+  MemoryService({Db? db, Files? files})
+    : _db = db ?? Db.instance,
+      _storageOverride = files;
 
-  final FirebaseFirestore _db;
-  final FirebaseStorage? _storageOverride;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
+  final Db _db;
+  final Files? _storageOverride;
+  Files get _storage => _storageOverride ?? Files.instance;
   static final _uuid = Uuid();
 
   static const maxMediaPerMemory = 20;

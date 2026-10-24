@@ -1,13 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/plans/models/bucket_item.dart';
 
 /// Reads and writes `couples/{coupleId}/bucketList`.
 class BucketListService {
-  BucketListService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  BucketListService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   CollectionReference<Map<String, dynamic>> _items(String coupleId) =>
       _db.collection('couples').doc(coupleId).collection('bucketList');

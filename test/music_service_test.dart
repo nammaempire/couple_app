@@ -1,4 +1,5 @@
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/backend/memory_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:couple_app/features/music/data/media_shelf.dart';
@@ -8,10 +9,10 @@ import 'package:couple_app/features/music/models/listening_session.dart';
 import 'package:couple_app/features/music/models/song.dart';
 import 'package:couple_app/features/music/models/song_link.dart';
 
-/// The real MusicService against an in-memory Firestore.
+/// The real MusicService against an in-memory database.
 void main() {
   const couple = 'c1';
-  late FakeFirebaseFirestore db;
+  late Db db;
   late int now;
   late ServerClock clock;
   late MusicService service;
@@ -44,12 +45,12 @@ void main() {
   }
 
   setUp(() async {
-    db = FakeFirebaseFirestore();
+    db = Db(MemoryBackend());
     now = 1000000;
     clock = ServerClock(localNowMs: () => now)
       // Already calibrated (offset 0), so times are predictable.
       ..observe(sentMs: 0, receivedMs: 0, serverMs: 0);
-    service = MusicService(firestore: db, clock: clock);
+    service = MusicService(db: db, clock: clock);
     for (final id in ['a', 'b', 'c']) {
       await addSong(song(id));
     }
@@ -57,7 +58,7 @@ void main() {
 
   test('an uncalibrated clock is calibrated before the first write', () async {
     final fresh = MusicService(
-      firestore: db,
+      db: db,
       clock: ServerClock(localNowMs: () => now),
     );
     expect(fresh.clock.isCalibrated, isFalse);

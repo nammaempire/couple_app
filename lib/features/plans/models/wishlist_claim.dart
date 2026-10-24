@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// A secret "I'll get this" on one of the partner's wishes, stored at
 /// `wishlistClaims/{itemId}`. Only [claimedBy] can ever read it; the item

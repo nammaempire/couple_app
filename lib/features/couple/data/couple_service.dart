@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
@@ -16,10 +16,9 @@ class PairingException implements Exception {
 
 /// Creates and joins the two-person "couple" that owns a conversation.
 class CoupleService {
-  CoupleService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  CoupleService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   String _generateCode() {
     final rand = Random.secure();
@@ -62,7 +61,7 @@ class CoupleService {
     DateTime? startDate,
   }) async {
     final name = coupleName?.trim();
-    FirebaseException? lastError;
+    DbException? lastError;
 
     for (var attempt = 0; attempt < 3; attempt++) {
       final coupleRef = _db.collection('couples').doc();
@@ -98,7 +97,7 @@ class CoupleService {
           coupleName: name,
           startDate: startDate,
         );
-      } on FirebaseException catch (e) {
+      } on DbException catch (e) {
         if (e.code != 'permission-denied') rethrow;
         lastError = e;
       }
@@ -193,7 +192,7 @@ class CoupleService {
         });
         tx.update(userRef, {'coupleId': invite.coupleId});
       });
-    } on FirebaseException catch (e) {
+    } on DbException catch (e) {
       if (e.code == 'permission-denied') {
         throw PairingException('That invite can no longer be used.');
       }

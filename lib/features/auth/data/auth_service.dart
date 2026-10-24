@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -17,16 +17,13 @@ class GoogleSignInSetupException implements Exception {
 /// Mobile-number sign-in goes through `PhoneAuthGateway`, then
 /// [ensureProfile].
 class AuthService {
-  AuthService({
-    FirebaseAuth? auth,
-    FirebaseFirestore? firestore,
-    GoogleSignIn? googleSignIn,
-  }) : _auth = auth ?? FirebaseAuth.instance,
-       _db = firestore ?? FirebaseFirestore.instance,
-       _google = googleSignIn ?? GoogleSignIn(scopes: const ['email']);
+  AuthService({FirebaseAuth? auth, Db? db, GoogleSignIn? googleSignIn})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _db = db ?? Db.instance,
+      _google = googleSignIn ?? GoogleSignIn(scopes: const ['email']);
 
   final FirebaseAuth _auth;
-  final FirebaseFirestore _db;
+  final Db _db;
   final GoogleSignIn _google;
 
   User? get currentUser => _auth.currentUser;

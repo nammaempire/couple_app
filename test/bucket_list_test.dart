@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +13,7 @@ import 'package:couple_app/features/plans/models/bucket_progress.dart';
 import 'package:couple_app/features/plans/providers/bucket_list_providers.dart';
 import 'package:couple_app/features/plans/screens/bucket_list_screen.dart';
 
-/// Records calls instead of touching Firestore.
+/// Records calls instead of touching the database.
 class _FakeBucketListService implements BucketListService {
   final calls = <String>[];
 

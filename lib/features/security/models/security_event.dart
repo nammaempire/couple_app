@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 /// What happened (`users/{uid}/securityEvents/{id}.type`).
 enum SecurityEventType {

@@ -1,7 +1,6 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:couple_app/features/chat/models/chat_look.dart';
@@ -14,15 +13,15 @@ import 'package:couple_app/features/chat/models/chat_look.dart';
 /// background photos go to `couples/{coupleId}/backgrounds/` (shared) or
 /// `users/{uid}/backgrounds/` (personal, only they can read it).
 class ChatLookService {
-  ChatLookService({FirebaseFirestore? firestore, FirebaseStorage? storage})
-    : _firestoreOverride = firestore,
-      _storageOverride = storage;
+  ChatLookService({Db? db, Files? files})
+    : _dbOverride = db,
+      _filesOverride = files;
 
-  final FirebaseFirestore? _firestoreOverride;
-  final FirebaseStorage? _storageOverride;
+  final Db? _dbOverride;
+  final Files? _filesOverride;
 
-  FirebaseFirestore get _db => _firestoreOverride ?? FirebaseFirestore.instance;
-  FirebaseStorage get _storage => _storageOverride ?? FirebaseStorage.instance;
+  Db get _db => _dbOverride ?? Db.instance;
+  Files get _storage => _filesOverride ?? Files.instance;
 
   static const _uuid = Uuid();
 

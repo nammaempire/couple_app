@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/security/models/device_check.dart';
 import 'package:couple_app/features/security/models/known_device.dart';
@@ -34,11 +34,11 @@ class PartnerContact {
 ///   the owner deletes.
 /// - `users/{uid}.blockNewPhoneUntil`: set by the owner (merge).
 class DeviceTrustService {
-  DeviceTrustService({FirebaseFirestore? firestore, Random? random})
-    : _db = firestore ?? FirebaseFirestore.instance,
+  DeviceTrustService({Db? db, Random? random})
+    : _db = db ?? Db.instance,
       _random = random ?? Random.secure();
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final Random _random;
 
   DocumentReference<Map<String, dynamic>> _user(String uid) =>

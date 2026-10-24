@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -490,11 +490,9 @@ void main() {
           overrides: [
             ...rig.overrides(pAsha),
             ...vaultOverrides().cast(),
-            memoryServiceProvider.overrideWithValue(
-              MemoryService(firestore: rig.db),
-            ),
+            memoryServiceProvider.overrideWithValue(MemoryService(db: rig.db)),
             chatServiceProvider.overrideWithValue(
-              ChatService(firestore: rig.db, storage: FakeStorageService()),
+              ChatService(db: rig.db, storage: FakeStorageService()),
             ),
           ],
           child: MaterialApp(
@@ -821,13 +819,12 @@ void main() {
   });
 
   group('muted partner', () {
-    Future<void> ring(PairingRig rig) =>
-        CallService(firestore: rig.db).startCall(
-          coupleId: pCouple,
-          callerId: pRavi,
-          calleeId: pAsha,
-          type: CallType.voice,
-        );
+    Future<void> ring(PairingRig rig) => CallService(db: rig.db).startCall(
+      coupleId: pCouple,
+      callerId: pRavi,
+      calleeId: pAsha,
+      type: CallType.voice,
+    );
 
     Future<void> pump(WidgetTester tester) async {
       await tester.pumpWidget(

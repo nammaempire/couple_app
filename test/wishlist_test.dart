@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +15,7 @@ import 'package:couple_app/features/plans/providers/wishlist_providers.dart';
 import 'package:couple_app/features/plans/screens/wishlist_item_editor_screen.dart';
 import 'package:couple_app/features/plans/screens/wishlist_screen.dart';
 
-/// Records calls instead of touching Firestore.
+/// Records calls instead of touching the database.
 class _FakeWishlistService implements WishlistService {
   final calls = <String>[];
 

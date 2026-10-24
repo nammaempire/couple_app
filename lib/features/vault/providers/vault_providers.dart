@@ -13,7 +13,7 @@ import 'package:couple_app/features/vault/models/vault_item.dart';
 import 'package:couple_app/features/vault/models/vault_meta.dart';
 import 'package:couple_app/features/vault/vault_session.dart';
 
-/// The vault's Firestore and Storage access.
+/// The vault's database and file access.
 final vaultServiceProvider = Provider<VaultService>((ref) => VaultService());
 
 /// This phone's vault key and local state, in the Android keystore.

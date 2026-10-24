@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:fc_native_video_thumbnail/fc_native_video_thumbnail.dart';
 import 'package:flutter/widgets.dart' show StringCharacters;
 
@@ -19,11 +19,11 @@ class ChatException implements Exception {
 
 /// Reads and writes messages in `couples/{coupleId}/messages`.
 class ChatService {
-  ChatService({FirebaseFirestore? firestore, StorageService? storage})
-    : _db = firestore ?? FirebaseFirestore.instance,
+  ChatService({Db? db, StorageService? storage})
+    : _db = db ?? Db.instance,
       _storage = storage ?? StorageService();
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final StorageService _storage;
 
   /// Matches the Storage rule for chat videos.
@@ -55,9 +55,9 @@ class ChatService {
 
   /// Newest messages first, capped at [limit]. Raise the limit to page back.
   ///
-  /// Also says whether the result came only from the on-device cache. When the limit grows, Firestore first answers from
-  /// cache with the messages it already has, which must not be mistaken for
-  /// "there are no older messages".
+  /// Also says whether the result came only from an on-device cache, which
+  /// must not be mistaken for "there are no older messages". The Us server
+  /// keeps no offline cache, so today this is always false.
   Stream<({List<Message> messages, bool fromCache})> watchMessagePage(
     String coupleId, {
     int limit = 100,

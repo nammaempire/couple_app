@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/couple/models/separation.dart';
 
@@ -20,11 +20,11 @@ class SeparationException implements Exception {
 /// come from [clock] (the phone), which the rules accept within ten minutes
 /// of the server's time.
 class SeparationService {
-  SeparationService({FirebaseFirestore? firestore, DateTime Function()? clock})
-    : _db = firestore ?? FirebaseFirestore.instance,
+  SeparationService({Db? db, DateTime Function()? clock})
+    : _db = db ?? Db.instance,
       _clock = clock ?? DateTime.now;
 
-  final FirebaseFirestore _db;
+  final Db _db;
   final DateTime Function() _clock;
 
   DocumentReference<Map<String, dynamic>> _couple(String coupleId) =>

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,7 +43,7 @@ Expense expense({
   createdAt: createdAt,
 );
 
-/// Records saves instead of talking to Firestore.
+/// Records saves instead of talking to the database.
 class FakeExpenseService implements ExpenseService {
   final saved = <Expense>[];
   final deleted = <String>[];

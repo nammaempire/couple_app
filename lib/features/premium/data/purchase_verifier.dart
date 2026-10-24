@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/premium/models/products.dart';
 
@@ -111,24 +111,19 @@ abstract class PurchaseVerifier {
   Future<VerifyResult> verify(PurchaseClaim claim);
 }
 
-/// [PurchaseVerifier] through the `verifyPurchase` callable in
-/// asia-south1.
+/// [PurchaseVerifier] through the Us server's `verifyPurchase` function.
 class FunctionsPurchaseVerifier implements PurchaseVerifier {
-  FunctionsPurchaseVerifier([FirebaseFunctions? functions])
-    : _given = functions;
+  FunctionsPurchaseVerifier([Functions? functions]) : _given = functions;
 
-  final FirebaseFunctions? _given;
-  late final FirebaseFunctions _functions =
-      _given ?? FirebaseFunctions.instanceFor(region: 'asia-south1');
+  final Functions? _given;
+  late final Functions _functions = _given ?? Functions.instance;
 
   @override
   Future<VerifyResult> verify(PurchaseClaim claim) async {
     try {
-      final result = await _functions
-          .httpsCallable('verifyPurchase')
-          .call<Object?>(claim.toData());
-      return VerifyResult.parse(result.data);
-    } on FirebaseFunctionsException catch (e) {
+      final result = await _functions.call('verifyPurchase', claim.toData());
+      return VerifyResult.parse(result);
+    } on FunctionsException catch (e) {
       throw VerifyException(failureForCode(e.code), e.message);
     } catch (e) {
       throw VerifyException(VerifyFailure.unavailable, '$e');

@@ -1,16 +1,16 @@
 // Fakes for mobile-number sign-in, pairing by number, ending a pairing and
 // sign-in protection, shared by their tests (and the screenshot suite): an
-// in-memory Firestore, a hand-moved clock, and fake SMS, server, biometric,
+// in-memory backend, a hand-moved clock, and fake SMS, server, biometric,
 // share sheet, phone identity and account re-checks.
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
+import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/backend/memory_backend.dart';
 import 'package:couple_app/core/providers/core_providers.dart';
 import 'package:couple_app/core/services/screen_privacy.dart';
 import 'package:couple_app/core/services/storage_service.dart';
@@ -272,9 +272,11 @@ class FakeAccountReauth implements AccountReauth {
 
 /// An in-memory backend for the pairing features, with Asha and Ravi.
 class PairingRig {
-  PairingRig({FakeFirebaseFirestore? db}) : db = db ?? FakeFirebaseFirestore();
+  PairingRig({MemoryBackend? backend}) : backend = backend ?? MemoryBackend();
 
-  final FakeFirebaseFirestore db;
+  /// The documents behind [db], for seeding and assertions.
+  final MemoryBackend backend;
+  late final Db db = Db(backend);
   DateTime now = DateTime(2026, 10, 21, 10);
   final phoneGateway = FakePhoneAuthGateway();
   final endGateway = FakeEndPairingGateway();
@@ -291,16 +293,15 @@ class PairingRig {
     crypto: VaultCrypto.forTests(seed: 7),
     names: phoneName,
   );
-  DeviceTrustService get trust => DeviceTrustService(firestore: db);
+  DeviceTrustService get trust => DeviceTrustService(db: db);
 
   DateTime clock() => now;
 
-  CoupleService get couples => CoupleService(firestore: db);
-  PhoneNumberService get phones => PhoneNumberService(firestore: db);
-  SeparationService get separations =>
-      SeparationService(firestore: db, clock: clock);
+  CoupleService get couples => CoupleService(db: db);
+  PhoneNumberService get phones => PhoneNumberService(db: db);
+  SeparationService get separations => SeparationService(db: db, clock: clock);
   PairRequestService get requests =>
-      PairRequestService(firestore: db, couples: couples, phones: phones);
+      PairRequestService(db: db, couples: couples, phones: phones);
 
   DocumentReference<Map<String, dynamic>> get couple =>
       db.collection('couples').doc(pCouple);
@@ -375,7 +376,7 @@ class PairingRig {
     endPairingGatewayProvider.overrideWithValue(endGateway),
     biometricAuthProvider.overrideWithValue(biometrics),
     inviteSharerProvider.overrideWithValue((text) async => shared.add(text)),
-    callServiceProvider.overrideWithValue(CallService(firestore: db)),
+    callServiceProvider.overrideWithValue(CallService(db: db)),
     storageServiceProvider.overrideWithValue(FakeStorageService()),
     screenSecurityProvider.overrideWithValue(security),
     screenshotDetectorProvider.overrideWithValue(FakeScreenshotDetector()),

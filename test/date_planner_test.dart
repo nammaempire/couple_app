@@ -1,6 +1,6 @@
 import 'dart:math';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -54,7 +54,7 @@ class _FixedRandom implements Random {
   double nextDouble() => 0;
 }
 
-/// Records calls instead of touching Firestore.
+/// Records calls instead of touching the database.
 class _FakeDatePlanService implements DatePlanService {
   final calls = <String>[];
 

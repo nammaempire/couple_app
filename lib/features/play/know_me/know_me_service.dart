@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/play/data/game_service.dart';
 import 'package:couple_app/features/play/know_me/know_me_logic.dart';
@@ -11,12 +11,12 @@ import 'package:couple_app/features/play/models/game.dart';
 /// guesser can't peek. The rules let the guesser read them only once their
 /// guesses are locked in.
 class KnowMeService {
-  KnowMeService({this._firestore});
+  KnowMeService({Db? db}) : _given = db;
 
-  final FirebaseFirestore? _firestore;
+  final Db? _given;
 
-  // Resolved lazily so test fakes can subclass without Firebase.
-  FirebaseFirestore get _db => _firestore ?? FirebaseFirestore.instance;
+  // Resolved lazily so test fakes can subclass without a backend.
+  Db get _db => _given ?? Db.instance;
 
   DocumentReference<Map<String, dynamic>> _gameRef(
     String coupleId,

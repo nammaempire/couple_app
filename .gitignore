@@ -52,3 +52,16 @@ android/key.properties
 # Local backups and transfer archives
 /_*.tar.gz
 *.bak
+
+# Local backups and archives (not part of the app)
+_migration/
+_claude_snapshot.tar.gz
+*.tar.gz
+
+# Server: installed packages and build output
+server/node_modules/
+server/dist/
+# Firebase service-account keys used by the import script
+server/scripts/*.json
+!server/scripts/tsconfig.json
+server/scripts/import.env

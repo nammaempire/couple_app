@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/home/models/daily_question.dart';
 
@@ -7,10 +7,9 @@ import 'package:couple_app/features/home/models/daily_question.dart';
 /// Stored at `couples/{coupleId}/dailyQuestions/{yyyy-MM-dd}`. Both answers
 /// live in one document so a single stream drives the unlock state.
 class DailyQuestionService {
-  DailyQuestionService({FirebaseFirestore? firestore})
-    : _db = firestore ?? FirebaseFirestore.instance;
+  DailyQuestionService({Db? db}) : _db = db ?? Db.instance;
 
-  final FirebaseFirestore _db;
+  final Db _db;
 
   DocumentReference<Map<String, dynamic>> _docFor(
     String coupleId,
