@@ -60,6 +60,7 @@ Node.js 22 + TypeScript, Fastify, `pg`. The app talks to it through
 | `POST /v1/fn/finalizeSeparation` | end a separation whose date passed |
 | `POST /v1/fn/leaveNow` | end the pairing now |
 | `POST /v1/fn/verifyPurchase` | verify a Google Play purchase |
+| `POST /v1/fn/iceServers` | STUN/TURN servers for a WebRTC call (TURN logins last `TURN_TTL_SECONDS`) |
 | `POST /webhooks/play-rtdn` | Google Play notifications (Pub/Sub push) |
 
 Errors: `{"error": {"code": "permission-denied", "message": "…"}}` with codes
@@ -106,6 +107,13 @@ Service → **Variables** → add:
 | `S3_SECRET_ACCESS_KEY` | Bucket → Credentials → secret key |
 | `S3_FORCE_PATH_STYLE` | `true` only if the bucket's credentials say to use path-style URLs |
 
+For push notifications (love taps, messages, calls, mood, notes, daily
+question — the phone buzzes even when the app is closed):
+
+| Variable | Value |
+|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | the whole content of a Firebase service-account key (Firebase console → Project settings → Service accounts → Generate new private key). Paste it with **+ New Variable** (not the Raw Editor). Without it, pushes are skipped. |
+
 For in-app purchases (can be added later; until then `verifyPurchase`
 answers "unavailable"):
 
@@ -115,6 +123,16 @@ answers "unavailable"):
 | `PLAY_PACKAGE_NAME` | `com.nammaempire.together` (default) |
 | `RTDN_AUDIENCE` | `<server URL>/webhooks/play-rtdn` |
 | `RTDN_SERVICE_ACCOUNT_EMAIL` | the service account Pub/Sub signs push requests as (see below) |
+
+For voice/video calls through a TURN relay (needed on mobile networks that
+block direct connections; set up before the Play Store release). Without
+these, calls use STUN only:
+
+| Variable | Value |
+|---|---|
+| `TURN_URLS` | comma-separated, e.g. `turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:5349?transport=tcp` |
+| `TURN_SECRET` | the same value as `static-auth-secret` in coturn (`use-auth-secret` mode) |
+| `TURN_TTL_SECONDS` | how long each TURN login lasts (default `21600`, 6 hours) |
 
 Optional: `RUN_SCHEDULER=false` turns off the 15-minute "end due
 separations" job (leave it on); `FUNCTIONS_LOG=off` silences function logs;

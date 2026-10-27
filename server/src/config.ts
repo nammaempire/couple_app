@@ -40,6 +40,23 @@ export const config = {
   /** Email of the service account Pub/Sub signs push requests as. */
   rtdnServiceAccountEmail: opt("RTDN_SERVICE_ACCOUNT_EMAIL"),
 
+  /**
+   * Firebase service-account key (JSON on one line) used to send push
+   * notifications through Firebase Cloud Messaging. Empty = no pushes.
+   */
+  firebaseServiceAccountJson: opt("FIREBASE_SERVICE_ACCOUNT_JSON"),
+
+  /**
+   * TURN relay for calls (coturn with use-auth-secret). Comma-separated URLs,
+   * e.g. "turn:turn.example.com:3478,turns:turn.example.com:443?transport=tcp".
+   * Empty = direct (STUN-only) calls.
+   */
+  turn: {
+    urls: opt("TURN_URLS").split(",").map((u) => u.trim()).filter(Boolean),
+    secret: opt("TURN_SECRET"),
+    ttlSeconds: Number(opt("TURN_TTL_SECONDS", "21600")),
+  },
+
   /** Run the "end due separations" job every 15 minutes. */
   runScheduler: opt("RUN_SCHEDULER", "true") === "true",
 

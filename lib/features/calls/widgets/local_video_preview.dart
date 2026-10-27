@@ -1,26 +1,23 @@
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
-import 'package:couple_app/features/calls/data/agora_service.dart';
+import 'package:couple_app/features/calls/data/webrtc_call_engine.dart';
 
-/// This phone's own camera, as a small rounded preview.
+/// This phone's own camera, as a small rounded preview (mirrored, like a
+/// selfie camera).
 class LocalVideoPreview extends StatelessWidget {
-  const LocalVideoPreview({super.key, required this.agora});
+  const LocalVideoPreview({super.key, required this.engine});
 
-  final AgoraService agora;
+  final WebRtcCallEngine engine;
 
   @override
   Widget build(BuildContext context) {
-    final engine = agora.engine;
-    if (engine == null) return const SizedBox.shrink();
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: AgoraVideoView(
-        controller: VideoViewController(
-          rtcEngine: engine,
-          canvas: const VideoCanvas(uid: 0),
-        ),
+      child: RTCVideoView(
+        engine.localRenderer,
+        mirror: true,
+        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
       ),
     );
   }

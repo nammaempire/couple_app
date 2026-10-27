@@ -14,7 +14,7 @@
     <!-- The camera is optional; the app still works with gallery only. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
-    <!-- Voice and video calling (Agora) -->
+    <!-- Voice and video calling (WebRTC) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
@@ -92,6 +92,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Push notifications (Firebase Cloud Messaging): the channel and
+             small icon used when the server doesn't name one. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="messages"/>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher_monochrome"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

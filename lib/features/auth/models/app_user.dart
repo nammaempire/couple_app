@@ -2,8 +2,9 @@ import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/avatar/models/avatar_config.dart';
 
-/// Which kinds of notification this user wants. Saved during onboarding so
-/// they are ready when push notifications ship.
+/// Which kinds of notification this user wants. The server reads them before
+/// sending push notifications (server/src/push/triggers.ts); reminders on the
+/// phone use them too.
 class NotificationPrefs {
   final bool messages;
   final bool mood;

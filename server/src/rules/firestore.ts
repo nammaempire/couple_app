@@ -1438,7 +1438,65 @@ const games: Rule[] = [
   },
 ];
 
+// ---- WebRTC call setup (new; replaces Agora) ----------------------------------------
+
+const SIGNAL_KINDS = ["offer", "answer", "candidates"];
+
+const callSignals: Rule[] = [
+  {
+    // Connection details the two phones swap to set up a call: one offer,
+    // one answer, and batches of network candidates. Written once, never
+    // edited; either partner may clear them when a new call starts.
+    pattern: "couples/{coupleId}/callSignals/{signalId}",
+    read: (c) => isMemberOf(c),
+    create: async (c) => {
+      const d = E.newData(c);
+      return (
+        (await isMemberOf(c)) &&
+        E.hasOnly(Object.keys(d), ["from", "to", "callId", "kind", "payload", "createdAt"]) &&
+        d.from === me(c) &&
+        typeof d.to === "string" &&
+        d.to !== me(c) &&
+        inL(d.to, (await coupleData(c)).memberIds) &&
+        typeof d.callId === "string" && d.callId.length > 0 && d.callId.length <= 64 &&
+        SIGNAL_KINDS.includes(d.kind as string) &&
+        typeof d.payload === "string" && d.payload.length <= 64_000 &&
+        E.isRequestTime(c, d.createdAt)
+      );
+    },
+    update: () => false,
+    delete: (c) => isMemberOf(c),
+  },
+];
+
+// ---- Push notification tokens (new; not in the old firestore.rules) ---------------
+
+const pushTokens: Rule[] = [
+  {
+    // One document per phone: its FCM token and time zone. Only the owner
+    // reads or writes them; the server reads them to send notifications.
+    pattern: "users/{userId}/pushTokens/{tokenId}",
+    read: (c) => signedIn(c) && me(c) === c.params.userId,
+    create: (c) => signedIn(c) && me(c) === c.params.userId && pushTokenOk(c),
+    update: (c) => signedIn(c) && me(c) === c.params.userId && pushTokenOk(c),
+    delete: (c) => signedIn(c) && me(c) === c.params.userId,
+  },
+];
+
+function pushTokenOk(c: Ctx): boolean {
+  const d = E.newData(c);
+  return (
+    E.hasOnly(Object.keys(d), ["token", "platform", "timeZone", "updatedAt"]) &&
+    typeof d.token === "string" && d.token.length > 0 && d.token.length <= 4096 &&
+    (d.platform === "android" || d.platform === "ios") &&
+    (d.timeZone === null || d.timeZone === undefined || (typeof d.timeZone === "string" && d.timeZone.length <= 64)) &&
+    E.isRequestTime(c, d.updatedAt)
+  );
+}
+
 export const firestoreRules: Rule[] = [
+  ...pushTokens,
+  ...callSignals,
   ...users,
   ...pairing,
   ...invites,

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/core/widgets/glass.dart';
-import 'package:couple_app/features/calls/data/agora_service.dart';
+import 'package:couple_app/features/calls/data/webrtc_call_engine.dart';
 import 'package:couple_app/features/calls/widgets/call_avatar_ring.dart';
 
 /// The row of in-call buttons: mute, camera or speaker, and hang up.
 class CallControls extends StatelessWidget {
   const CallControls({
     super.key,
-    required this.agora,
+    required this.engine,
     required this.isVideo,
     required this.onHangUp,
   });
 
-  final AgoraService agora;
+  final WebRtcCallEngine engine;
   final bool isVideo;
   final VoidCallback onHangUp;
 
@@ -29,31 +29,31 @@ class CallControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             GlassCallButton(
-              icon: agora.micMuted ? Icons.mic_off : Icons.mic,
-              active: agora.micMuted,
-              tooltip: agora.micMuted ? 'Unmute' : 'Mute',
-              onPressed: agora.isReady ? agora.toggleMic : null,
+              icon: engine.micMuted ? Icons.mic_off : Icons.mic,
+              active: engine.micMuted,
+              tooltip: engine.micMuted ? 'Unmute' : 'Mute',
+              onPressed: engine.isReady ? engine.toggleMic : null,
             ),
             gap,
             if (isVideo) ...[
               GlassCallButton(
-                icon: agora.cameraOff ? Icons.videocam_off : Icons.videocam,
-                active: agora.cameraOff,
-                tooltip: agora.cameraOff ? 'Camera on' : 'Camera off',
-                onPressed: agora.isReady ? agora.toggleCamera : null,
+                icon: engine.cameraOff ? Icons.videocam_off : Icons.videocam,
+                active: engine.cameraOff,
+                tooltip: engine.cameraOff ? 'Camera on' : 'Camera off',
+                onPressed: engine.isReady ? engine.toggleCamera : null,
               ),
               gap,
               GlassCallButton(
                 icon: Icons.cameraswitch,
                 tooltip: 'Flip camera',
-                onPressed: agora.isReady ? agora.switchCamera : null,
+                onPressed: engine.isReady ? engine.switchCamera : null,
               ),
             ] else
               GlassCallButton(
-                icon: agora.speakerOn ? Icons.volume_up : Icons.phone_in_talk,
-                active: agora.speakerOn,
-                tooltip: agora.speakerOn ? 'Speaker off' : 'Speaker on',
-                onPressed: agora.isReady ? agora.toggleSpeaker : null,
+                icon: engine.speakerOn ? Icons.volume_up : Icons.phone_in_talk,
+                active: engine.speakerOn,
+                tooltip: engine.speakerOn ? 'Speaker off' : 'Speaker on',
+                onPressed: engine.isReady ? engine.toggleSpeaker : null,
               ),
             gap,
             GlassCallButton(

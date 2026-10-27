@@ -1,4 +1,5 @@
 import 'package:couple_app/core/backend/backend.dart';
+import 'package:couple_app/core/push/push_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -225,6 +226,8 @@ class AuthService {
   Future<void> signOut() async {
     // Reminders belong to this account; don't leave them on the phone.
     await ReminderService.instance.clear();
+    // Stop this phone getting the account's push notifications.
+    await PushService.instance.stop();
     try {
       // Clears the cached Google account so the picker shows next time.
       await _google.signOut();

@@ -1,32 +1,19 @@
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
-import 'package:couple_app/features/calls/data/agora_service.dart';
+import 'package:couple_app/features/calls/data/webrtc_call_engine.dart';
 
 /// The partner's camera feed, full screen during a video call.
 class RemoteVideoView extends StatelessWidget {
-  const RemoteVideoView({
-    super.key,
-    required this.agora,
-    required this.uid,
-    required this.channelName,
-  });
+  const RemoteVideoView({super.key, required this.engine});
 
-  final AgoraService agora;
-  final int uid;
-  final String channelName;
+  final WebRtcCallEngine engine;
 
   @override
   Widget build(BuildContext context) {
-    final engine = agora.engine;
-    if (engine == null) return const SizedBox.shrink();
-
-    return AgoraVideoView(
-      controller: VideoViewController.remote(
-        rtcEngine: engine,
-        canvas: VideoCanvas(uid: uid),
-        connection: RtcConnection(channelId: channelName),
-      ),
+    return RTCVideoView(
+      engine.remoteRenderer,
+      objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
     );
   }
 }

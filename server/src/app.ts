@@ -6,7 +6,8 @@ import { registerFiles } from "./files.js";
 import { callables } from "./functions/index.js";
 import { registerWebhooks } from "./functions/webhooks.js";
 import { registerRealtime } from "./realtime.js";
-import { commit, count, getDocs, query, type CommitSpec, type QuerySpec } from "./store.js";
+import { commit, count, getDocs, onUserCommit, query, type CommitSpec, type QuerySpec } from "./store.js";
+import { pushAfterCommit } from "./push/triggers.js";
 import { pool } from "./db.js";
 
 export async function buildApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
@@ -64,6 +65,12 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
     const result = await fn(auth, (req.body as { data?: unknown } | null)?.data ?? null);
     return { result: result ?? null };
   });
+
+  // Push notifications for the partner (love taps, messages, calls, …).
+  const stopPush = onUserCommit((actor, changes) => {
+    void pushAfterCommit(actor, changes);
+  });
+  app.addHook("onClose", async () => stopPush());
 
   await registerFiles(app);
   await registerWebhooks(app);

@@ -7,7 +7,7 @@ import 'package:couple_app/core/services/voice_playback.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
-import 'package:couple_app/features/calls/data/agora_service.dart';
+import 'package:couple_app/features/calls/data/webrtc_call_engine.dart';
 import 'package:couple_app/features/calls/data/call_service.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
@@ -22,7 +22,7 @@ import 'package:couple_app/features/couple/providers/couple_providers.dart';
 
 /// The in-call screen, for both the caller and the callee.
 ///
-/// It owns the Agora engine for the duration of the call and watches the
+/// It owns the WebRTC call engine for the duration of the call and watches the
 /// signalling document so a hang-up on either side closes both screens.
 class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({
@@ -41,7 +41,7 @@ class CallScreen extends ConsumerStatefulWidget {
 }
 
 class _CallScreenState extends ConsumerState<CallScreen> {
-  final _agora = AgoraService();
+  late final WebRtcCallEngine _engine;
 
   // Read once in initState: dispose() logs the call, and ref can no longer
   // be used there.
@@ -81,7 +81,18 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _calls = ref.read(callServiceProvider);
     _chat = ref.read(chatServiceProvider);
     VoicePlayback.instance.stop();
-    _agora.addListener(_onAgoraChanged);
+    final session = widget.session;
+    _engine = WebRtcCallEngine(
+      coupleId: _coupleId,
+      callId: session.channelName,
+      myUid: _myUid,
+      partnerUid: session.callerId == _myUid
+          ? session.calleeId
+          : session.callerId,
+      isCaller: widget.isOutgoing,
+      video: session.isVideo,
+    );
+    _engine.addListener(_onEngineChanged);
     _watchSignalling();
 
     if (widget.session.isActive) {
@@ -102,12 +113,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     _ringTimer?.cancel();
     _callSub?.cancel();
     _ticker?.cancel();
-    _agora.removeListener(_onAgoraChanged);
-    _agora.dispose();
+    _engine.removeListener(_onEngineChanged);
+    _engine.dispose();
     super.dispose();
   }
 
-  void _onAgoraChanged() {
+  void _onEngineChanged() {
     if (mounted) setState(() {});
   }
 
@@ -129,7 +140,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         return;
       }
 
-      // Caller side: the callee just accepted, so join the channel.
+      // Caller side: the callee just accepted, so connect.
       if (session.isActive && !_hasJoined && !_joining) {
         _ringTimer?.cancel();
         _acceptedAt ??= DateTime.now();
@@ -195,10 +206,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     setState(() => _joining = true);
 
     try {
-      await _agora.join(
-        channelName: widget.session.channelName,
-        video: widget.session.isVideo,
-      );
+      await _engine.join();
       if (mounted) setState(() => _hasJoined = true);
     } on CallSetupException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -239,8 +247,8 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     if (!_hasJoined) {
       return widget.isOutgoing ? 'Ringing…' : 'Connecting…';
     }
-    if (_agora.remoteUid == null) {
-      return _agora.partnerHasJoined ? 'Reconnecting…' : 'Connecting…';
+    if (!_engine.remoteConnected) {
+      return _engine.partnerHasJoined ? 'Reconnecting…' : 'Connecting…';
     }
     return _formatDuration(_elapsed);
   }
@@ -255,7 +263,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Widget build(BuildContext context) {
     final partnerName = ref.watch(partnerNameProvider);
     final isVideo = widget.session.isVideo;
-    final connected = _agora.remoteUid != null;
+    final connected = _engine.remoteConnected;
 
     return PopScope(
       // Leaving by back-swipe should hang up, not silently orphan the call.
@@ -268,21 +276,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
         body: Stack(
           children: [
             if (isVideo && connected)
-              RemoteVideoView(
-                agora: _agora,
-                uid: _agora.remoteUid!,
-                channelName: widget.session.channelName,
-              )
+              RemoteVideoView(engine: _engine)
             else
               CallAvatarBackdrop(name: partnerName, pulse: !connected),
 
-            if (isVideo && _hasJoined && !_agora.cameraOff)
+            if (isVideo && _hasJoined && !_engine.cameraOff)
               Positioned(
                 top: 60,
                 right: 16,
                 width: 110,
                 height: 160,
-                child: LocalVideoPreview(agora: _agora),
+                child: LocalVideoPreview(engine: _engine),
               ),
 
             Positioned(
@@ -370,7 +374,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
               right: 0,
               bottom: 48,
               child: CallControls(
-                agora: _agora,
+                engine: _engine,
                 isVideo: isVideo,
                 onHangUp: _hangUp,
               ),

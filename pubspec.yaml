@@ -18,13 +18,18 @@ dependencies:
   # functions are on the Us server (lib/core/backend, server/).
   firebase_core: ^3.8.0
   firebase_auth: ^5.3.3
+  # Push notifications (love taps, messages, calls…) when the app is closed.
+  # Only the alert goes through Firebase Cloud Messaging; data stays on the
+  # Us server. Pinned to the release that matches firebase_core 3.x.
+  firebase_messaging: 15.2.10
 
   # Media
   image_picker: ^1.1.2
   cached_network_image: ^3.4.1
 
-  # Voice and video calling
-  agora_rtc_engine: ^6.5.2
+  # Voice and video calling: our own WebRTC (no third-party call service).
+  # Call setup goes through the Us server; media flows phone to phone.
+  flutter_webrtc: 1.6.2+hotfix.4
   permission_handler: ^11.3.1
 
   # Utils

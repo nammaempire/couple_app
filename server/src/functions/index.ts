@@ -4,6 +4,7 @@
  */
 import type { AuthInfo } from "../rules/engine.js";
 import { verifyPurchase as verifyPurchaseImpl } from "./billing.js";
+import { iceServers } from "./ice.js";
 import { finalizeSeparation, leaveNow, requireUid } from "./separations.js";
 
 export type Callable = (auth: AuthInfo, data: unknown) => Promise<unknown>;
@@ -17,6 +18,8 @@ export const callables: Record<string, Callable> = {
    * Returns { status: 'granted' | 'alreadyGranted', premiumUntil?, bookCredits?, giftId? }.
    */
   verifyPurchase: async (auth, data) => verifyPurchaseImpl(requireUid(auth), data),
+  /** Connection servers (STUN, and TURN when configured) for a WebRTC call. */
+  iceServers: async (auth) => iceServers(auth),
 };
 
 export { endCouple } from "./endCouple.js";

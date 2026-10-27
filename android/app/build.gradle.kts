@@ -22,8 +22,8 @@ if (hasReleaseKeystore) {
 
 android {
     namespace = "com.nammaempire.together"
-    // Pinned rather than inherited: the Agora plugin's AndroidX dependencies
-    // require 34+, and this must not drift below that.
+    // Pinned rather than inherited: AndroidX dependencies require 34+, and
+    // this must not drift below that.
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -36,7 +36,7 @@ android {
 
     defaultConfig {
         applicationId = "com.nammaempire.together"
-        // Firebase Auth requires 23+; Agora requires 21+.
+        // Firebase Auth requires 23+; WebRTC requires 21+.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -68,31 +68,6 @@ android {
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
-            )
-        }
-    }
-
-    packaging {
-        jniLibs {
-            // Agora ships optional extensions this app never turns on
-            // (calls use plain audio/video only). Each is 1-10 MB per CPU type.
-            // If one of these features is ever added, remove its line.
-            excludes += listOf(
-                "**/libagora_clear_vision_extension.so",      // video enhancement
-                "**/libagora_lip_sync_extension.so",          // lip sync avatars
-                "**/libagora_spatial_audio_extension.so",     // 3D audio
-                "**/libagora_ai_noise_suppression_extension.so",
-                "**/libagora_ai_noise_suppression_ll_extension.so",
-                "**/libagora_ai_echo_cancellation_extension.so",
-                "**/libagora_ai_echo_cancellation_ll_extension.so",
-                "**/libagora_segmentation_extension.so",      // virtual background
-                "**/libagora_face_capture_extension.so",
-                "**/libagora_face_detection_extension.so",
-                "**/libagora_audio_beauty_extension.so",      // voice effects
-                "**/libagora_content_inspect_extension.so",   // moderation
-                "**/libagora_video_av1_encoder_extension.so",
-                "**/libagora_video_quality_analyzer_extension.so",
-                "**/libagora_screen_capture_extension.so",    // screen sharing
             )
         }
     }

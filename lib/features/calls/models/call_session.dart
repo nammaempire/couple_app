@@ -6,7 +6,7 @@ enum CallStatus {
   /// Caller has dialled; the other phone should be showing an incoming screen.
   ringing,
 
-  /// Callee accepted. Both sides join the Agora channel.
+  /// Callee accepted. Both phones connect over WebRTC.
   accepted,
 
   /// Callee actively rejected.
@@ -30,7 +30,7 @@ class CallSession {
   final CallType type;
   final CallStatus status;
 
-  /// Agora channel both sides join. Random per call.
+  /// This call's id (random per call); its WebRTC setup messages use it.
   final String channelName;
 
   final DateTime? startedAt;

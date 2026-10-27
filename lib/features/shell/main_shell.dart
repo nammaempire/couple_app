@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:couple_app/core/push/push_service.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/widgets/incoming_call_listener.dart';
 import 'package:couple_app/features/chat/screens/chat_screen.dart';
@@ -78,6 +79,9 @@ class _MainShellState extends ConsumerState<MainShell>
     _listenForGameInvites();
     _listenForPlans();
     _listenForSeparation();
+    // Lets the partner's love taps, messages and calls buzz this phone
+    // even when the app is closed.
+    unawaited(PushService.instance.start(_myUid));
     WidgetsBinding.instance.addObserver(this);
   }
 

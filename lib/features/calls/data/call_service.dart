@@ -1,12 +1,14 @@
 import 'package:couple_app/core/backend/backend.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:couple_app/features/calls/data/call_signaling.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 
-/// Call signalling over Firestore.
+/// Call state on the Us server: ringing, accepted, declined, ended, missed.
 ///
 /// Both phones watch one document; each state change (ring, accept, decline,
-/// hang up) is a write both sides see. No dedicated signalling server needed.
+/// hang up) is a write both sides see. The WebRTC connection itself is set up
+/// through [CallSignaling] once the call is accepted.
 class CallService {
   CallService({Db? db}) : _db = db ?? Db.instance;
 
@@ -33,6 +35,10 @@ class CallService {
     required CallType type,
   }) async {
     final channelName = _uuid.v4().replaceAll('-', '');
+    // Setup messages from earlier calls are no longer needed.
+    try {
+      await CallSignaling(_db).clear(coupleId);
+    } catch (_) {}
 
     await _callDoc(coupleId).set({
       'callerId': callerId,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:couple_app/core/config/agora_config.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
@@ -17,10 +16,6 @@ Future<void> placeCall(
   WidgetRef ref, {
   required CallType type,
 }) async {
-  if (!AgoraConfig.isConfigured) {
-    context.showSnackMessage('Calling is not set up yet: no Agora App ID.');
-    return;
-  }
   final myUid = ref.read(currentUidProvider);
   final partnerUid = ref.read(coupleProvider).value?.partnerIdFor(myUid);
   if (partnerUid == null) {

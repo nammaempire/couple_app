@@ -2,7 +2,7 @@
  * The document store: reads, queries and atomic commits over the per-collection
  * Postgres tables, with security rules applied for app requests.
  */
-import { pool, tx, type Client } from "./db.js";
+import { markChanged, pool, tx, type Client } from "./db.js";
 import { ApiError } from "./errors.js";
 import { evaluate, type AuthInfo, type DocLike, type Op, type Rule, type RuleContext } from "./rules/engine.js";
 import { firestoreRules } from "./rules/firestore.js";
@@ -356,6 +356,7 @@ export function onLocalChange(fn: ChangeListener): () => void {
 }
 
 export async function notifyChanged(c: Client, paths: string[]): Promise<void> {
+  markChanged(c, paths);
   // Chunked to stay under NOTIFY's 8000-byte payload limit.
   let chunk: string[] = [];
   let size = 0;
@@ -382,7 +383,37 @@ async function preconditionFailed(ctx: Ctx, path: string, err: ApiError): Promis
   throw new ApiError("permission-denied", "Missing or insufficient permissions.", { path });
 }
 
+/** What a user's commit changed, for side effects such as push notifications. */
+export interface CommittedChange {
+  path: string;
+  before: Data | null;
+  after: Data | null;
+}
+type UserCommitHook = (actorUid: string, changes: CommittedChange[]) => void;
+const userCommitHooks = new Set<UserCommitHook>();
+
+/** Called after every successful commit made by an app user (not the server). */
+export function onUserCommit(fn: UserCommitHook): () => void {
+  userCommitHooks.add(fn);
+  return () => userCommitHooks.delete(fn);
+}
+
 export function commit(caller: Caller, spec: CommitSpec): Promise<CommitResult> {
+  return commitInner(caller, spec).then(({ result, changes }) => {
+    if (caller.kind === "user" && caller.auth && changes.length) {
+      for (const hook of userCommitHooks) {
+        try {
+          hook(caller.auth.uid, changes);
+        } catch (e) {
+          console.error("Commit hook failed:", e);
+        }
+      }
+    }
+    return result;
+  });
+}
+
+function commitInner(caller: Caller, spec: CommitSpec): Promise<{ result: CommitResult; changes: CommittedChange[] }> {
   return wrap(async () => {
     if (!Array.isArray(spec.writes)) throw new ApiError("invalid-argument", "writes must be a list.");
     if (spec.writes.length > MAX_WRITES) throw new ApiError("invalid-argument", `At most ${MAX_WRITES} writes per commit.`);
@@ -497,7 +528,10 @@ export function commit(caller: Caller, spec: CommitSpec): Promise<CommitResult> 
         }
       }
       await notifyChanged(c, [...ctx.after.keys()]);
-      return result;
+      const changes: CommittedChange[] = [...ctx.after.entries()]
+        .filter(([path, after]) => after || ctx.before.get(path))
+        .map(([path, after]) => ({ path, before: ctx.before.get(path)?.data ?? null, after: after?.data ?? null }));
+      return { result, changes };
     });
   });
 }

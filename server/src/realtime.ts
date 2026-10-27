@@ -18,6 +18,7 @@ import type { FastifyInstance } from "fastify";
 import type { WebSocket } from "ws";
 import { verifyToken, type VerifiedAuth } from "./auth.js";
 import { config } from "./config.js";
+import { onCommitted } from "./db.js";
 import { ApiError } from "./errors.js";
 import { getDoc, query, type Doc, type QuerySpec } from "./store.js";
 import { resolveCollection, resolveDoc } from "./schema.js";
@@ -120,12 +121,35 @@ export function onChanged(paths: string[]): void {
 
 let listener: pg.Client | null = null;
 let stopped = false;
+let heartbeat: NodeJS.Timeout | null = null;
+let stopLocal: (() => void) | null = null;
+
+/** Retries until the listener is up (or the server is stopping). */
+function restartListener(delay = 2000): void {
+  if (stopped) return;
+  setTimeout(() => {
+    startListener().catch((e) => {
+      console.error("Realtime: LISTEN connection failed, retrying:", (e as Error).message);
+      restartListener(Math.min(delay * 2, 30_000));
+    });
+  }, delay);
+}
+
+/** Drops the listener connection and opens a new one. */
+function resetListener(client: pg.Client): void {
+  if (listener === client) listener = null;
+  client.removeAllListeners("error");
+  client.on("error", () => {});
+  client.end().catch(() => {});
+  restartListener();
+}
 
 async function startListener(): Promise<void> {
   if (stopped) return;
   const client = new pg.Client({
     connectionString: config.databaseUrl,
     ssl: config.databaseSsl ? { rejectUnauthorized: false } : undefined,
+    keepAlive: true,
   });
   client.on("notification", (msg) => {
     if (msg.channel !== "doc_changes" || !msg.payload) return;
@@ -135,20 +159,35 @@ async function startListener(): Promise<void> {
       /* ignore malformed */
     }
   });
-  client.on("error", () => {
-    if (listener === client) listener = null;
-    client.end().catch(() => {});
-    if (!stopped) setTimeout(() => void startListener().catch(() => {}), 2000);
+  client.on("error", () => resetListener(client));
+  client.on("end", () => {
+    if (listener === client && !stopped) resetListener(client);
   });
   await client.connect();
   await client.query("LISTEN doc_changes");
   listener = client;
+  // A connection that idles for days can be dropped by the network without
+  // any error. Ping it every 30 s and reconnect if it doesn't answer.
+  if (heartbeat) clearInterval(heartbeat);
+  heartbeat = setInterval(() => {
+    const l = listener;
+    if (!l) return;
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("heartbeat timeout")), 10_000));
+    Promise.race([l.query("SELECT 1"), timeout]).catch((e) => {
+      console.error("Realtime: LISTEN connection lost, reconnecting:", (e as Error).message);
+      resetListener(l);
+    });
+  }, 30_000);
   // After a reconnect, notifications may have been missed: refresh everything.
   for (const conn of conns) for (const sub of conn.subs.values()) schedule(conn, sub);
 }
 
 export async function stopRealtime(): Promise<void> {
   stopped = true;
+  if (heartbeat) clearInterval(heartbeat);
+  heartbeat = null;
+  stopLocal?.();
+  stopLocal = null;
   const l = listener;
   listener = null;
   if (l) {
@@ -162,6 +201,9 @@ export async function stopRealtime(): Promise<void> {
 
 export async function registerRealtime(app: FastifyInstance): Promise<void> {
   stopped = false;
+  // Changes committed by this process reach its listeners directly...
+  stopLocal = onCommitted(onChanged);
+  // ...and NOTIFY carries them between instances.
   await startListener();
   app.addHook("onClose", async () => stopRealtime());
 

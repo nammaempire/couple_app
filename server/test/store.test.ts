@@ -192,3 +192,40 @@ describe("realtime", () => {
     ws.close();
   });
 });
+
+describe("realtime when the LISTEN connection dies", () => {
+  it("still pushes updates (local fan-out) and reconnects", async () => {
+    const { pool } = await import("../src/db.js");
+    const ws = new WebSocket(s.ws);
+    const msgs: any[] = [];
+    ws.on("message", (raw) => msgs.push(JSON.parse(String(raw))));
+    await new Promise((r) => ws.on("open", r));
+    ws.send(JSON.stringify({ t: "auth", token: "test:b" }));
+    ws.send(JSON.stringify({ t: "sub", id: "q", query: { collection: "couples/c1/messages", orderBy: [["sentAt", "desc"]], limit: 1 } }));
+    const until = async (pred: (m: any) => boolean, ms = 4000) => {
+      const t0 = Date.now();
+      while (Date.now() - t0 < ms) {
+        const m = msgs.find(pred);
+        if (m) return m;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      throw new Error("timeout: " + JSON.stringify(msgs));
+    };
+    await until((m) => m.t === "snap" && m.id === "q");
+    // Kill the LISTEN connection silently, like an idle network drop.
+    await pool.query(
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND query ILIKE 'LISTEN%' AND pid <> pg_backend_pid()",
+    );
+    msgs.length = 0;
+    const t0 = Date.now();
+    const r = await call(s.base, "/v1/db/commit", {
+      writes: [{ op: "create", path: "couples/c1/messages/afterdrop", data: { senderId: "a", text: "still live", sentAt: SV("serverTimestamp") } }],
+    }, "a");
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const snap = await until((m) => m.t === "snap" && m.id === "q" && m.docs[0]?.id === "afterdrop");
+    assert.equal(snap.docs[0].data.text, "still live");
+    // Faster than the 2 s LISTEN reconnect: it came through the local path.
+    assert.ok(Date.now() - t0 < 1500, `took ${Date.now() - t0} ms`);
+    ws.close();
+  });
+});
