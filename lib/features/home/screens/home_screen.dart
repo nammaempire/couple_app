@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/avatar/widgets/my_avatar_sheet.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 import 'package:couple_app/features/couple/widgets/separation_banner.dart';
@@ -13,6 +14,7 @@ import 'package:couple_app/features/home/providers/home_providers.dart';
 import 'package:couple_app/features/home/widgets/coming_up_card.dart';
 import 'package:couple_app/features/home/widgets/couple_header.dart';
 import 'package:couple_app/features/home/widgets/daily_question_card.dart';
+import 'package:couple_app/features/home/widgets/love_burst.dart';
 import 'package:couple_app/features/home/widgets/love_taps_card.dart';
 import 'package:couple_app/features/home/widgets/mood_card.dart';
 import 'package:couple_app/features/home/widgets/quick_actions.dart';
@@ -80,7 +82,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await couples.setStartDate(coupleId: couple.id, date: picked);
   }
 
+  /// Plays the love burst with my avatar pulling the tap's face right away,
+  /// then sends it (the partner's phone plays it with my avatar too).
   Future<void> _sendLove(LoveTap tap) {
+    final me = _me;
+    LoveBurst.play(
+      tap,
+      avatar: me.avatar,
+      overlay: Overlay.of(context, rootOverlay: true),
+    );
+    AvatarReactions.react(me.uid, tap.expression);
     return ref
         .read(nudgeServiceProvider)
         .send(coupleId: couple.id, senderId: _me.uid, kind: tap);
@@ -155,6 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               me: me,
               partner: partner,
               couplePhotoUrl: couple.photoUrl,
+              onTapMe: () => openMyAvatar(context, me),
             ),
             const SizedBox(height: 16),
             if (couple.isSeparating) ...[
@@ -195,6 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             LoveTapsCard(
               partnerName: partnerName,
               enabled: paired,
+              myAvatar: me.avatar,
               onSend: _sendLove,
             ),
             const SizedBox(height: 16),

@@ -7,6 +7,7 @@ import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/data/call_service.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
+import 'package:couple_app/features/calls/data/active_call.dart';
 import 'package:couple_app/features/calls/screens/incoming_call_screen.dart';
 import 'package:couple_app/features/couple/providers/separation_providers.dart';
 
@@ -58,6 +59,9 @@ class _IncomingCallListenerState extends ConsumerState<IncomingCallListener> {
     // ringing and has not sat unanswered past the timeout.
     if (!session.isIncomingFor(_myUid)) return;
     if (_showing || session.hasRungOut) return;
+    // Already on a call (this one, answered, or another): don't ring over it.
+    final ongoing = ActiveCall.current.value;
+    if (ongoing != null && !ongoing.ended) return;
 
     if (ref.read(mutePartnerProvider)) {
       unawaited(_calls.markMissed(_coupleId).catchError((_) {}));

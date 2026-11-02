@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/push/push_service.dart';
+import 'package:couple_app/core/services/haptics.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/widgets/incoming_call_listener.dart';
 import 'package:couple_app/features/chat/screens/chat_screen.dart';
@@ -14,10 +15,12 @@ import 'package:couple_app/features/home/models/love_tap.dart';
 import 'package:couple_app/features/home/models/nudge.dart';
 import 'package:couple_app/features/home/providers/home_providers.dart';
 import 'package:couple_app/features/home/screens/home_screen.dart';
+import 'package:couple_app/features/home/widgets/love_burst.dart';
 import 'package:couple_app/features/memories/screens/memories_screen.dart';
 import 'package:couple_app/features/music/widgets/listening_banner.dart';
 import 'package:couple_app/features/security/widgets/device_check_listener.dart';
 import 'package:couple_app/features/security/widgets/security_banners.dart';
+import 'package:couple_app/features/shell/tab_badges.dart';
 import 'package:couple_app/features/plans/providers/date_plan_providers.dart';
 import 'package:couple_app/features/premium/providers/premium_providers.dart';
 import 'package:couple_app/features/play/game_catalog.dart';
@@ -27,6 +30,7 @@ import 'package:couple_app/features/play/screens/play_hub_screen.dart';
 import 'package:couple_app/features/together/data/event_service.dart';
 import 'package:couple_app/features/together/data/reminder_planner.dart';
 import 'package:couple_app/features/together/data/reminder_service.dart';
+import 'package:couple_app/features/together/models/love_note.dart';
 import 'package:couple_app/features/together/providers/together_providers.dart';
 import 'package:couple_app/features/together/screens/together_screen.dart';
 import 'package:couple_app/features/us/screens/us_screen.dart';
@@ -79,6 +83,8 @@ class _MainShellState extends ConsumerState<MainShell>
     _listenForGameInvites();
     _listenForPlans();
     _listenForSeparation();
+    _listenForLoveNotes();
+    _listenForBadges();
     // Lets the partner's love taps, messages and calls buzz this phone
     // even when the app is closed.
     unawaited(PushService.instance.start(_myUid));
@@ -88,6 +94,7 @@ class _MainShellState extends ConsumerState<MainShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _markOpenTabSeen();
       unawaited(ref.read(separationFinalizerProvider.notifier).check());
       // Paid purchases the server couldn't confirm yet.
       unawaited(
@@ -224,6 +231,77 @@ class _MainShellState extends ConsumerState<MainShell>
     });
   }
 
+  /// A love note from the partner while the app is open: a buzz and a
+  /// banner (with the app closed, the push notification plays its chime).
+  void _listenForLoveNotes() {
+    Set<String>? known;
+    ref.listenManual(incomingNotesProvider, (previous, next) {
+      final notes = next.value;
+      if (notes == null) return;
+      final ids = notes.map((n) => n.id).toSet();
+      final fresh = known == null
+          ? const <LoveNote>[]
+          : notes.where((n) => !known!.contains(n.id)).toList();
+      known = ids;
+      if (fresh.isEmpty || !mounted) return;
+      if (ref.read(mutePartnerProvider)) return;
+      final note = fresh.first;
+      final partnerName = ref.read(partnerNameProvider);
+      final now = DateTime.now();
+      unawaited(Haptics.buzz());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 6),
+          content: Text(
+            note.isDelivered(now)
+                ? '💌  $partnerName sent you a love note'
+                : '💌  $partnerName sealed a love note for you',
+          ),
+          action: SnackBarAction(
+            label: note.isDelivered(now) ? 'Read' : 'See',
+            onPressed: () {
+              if (!mounted) return;
+              setState(() => _tabIndex = _togetherTab);
+              _togetherKey.currentState?.showTab(
+                TogetherScreenState.loveNotesTab,
+              );
+            },
+          ),
+        ),
+      );
+    }, onError: (error, stack) {});
+  }
+
+  /// Starts each badge section's clock the first time, and clears the
+  /// Memories badge when something new arrives while Memories is open.
+  void _listenForBadges() {
+    ref.listenManual(tabSeenAtProvider, (previous, next) {
+      final seen = next.value;
+      if (seen == null) return;
+      final missing = BadgeSection.all.where((s) => !seen.containsKey(s));
+      if (missing.isNotEmpty) unawaited(markSectionSeen(_myUid, missing));
+    }, fireImmediately: true);
+    ref.listenManual(memoriesBadgeProvider, (previous, next) {
+      if (next > 0) _markOpenTabSeen();
+    });
+  }
+
+  /// Clears the badge of the tab on screen (Together handles its own
+  /// sections; Chat marks messages seen itself).
+  void _markOpenTabSeen() {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
+    if (_tabIndex == _memoriesTab && ref.read(memoriesBadgeProvider) > 0) {
+      unawaited(markSectionSeen(_myUid, const [BadgeSection.memories]));
+    }
+  }
+
+  void _selectTab(int index) {
+    setState(() => _tabIndex = index);
+    _markOpenTabSeen();
+  }
+
   /// Shows a snack bar when the partner invites this user to a game while
   /// the app is open. Games already waiting when the app starts are left to
   /// the Play tab's badge.
@@ -268,7 +346,17 @@ class _MainShellState extends ConsumerState<MainShell>
     }, onError: (error, stack) {});
   }
 
+  /// A love tap from the partner while the app is open: the love burst with
+  /// their avatar pulling the tap's face, a double buzz and a banner (with
+  /// the app closed, the push notification buzzes instead).
   Future<void> _playNudge(LoveTap kind) async {
+    final partner = ref.read(partnerProvider).value;
+    LoveBurst.play(
+      kind,
+      avatar: partner?.avatar,
+      overlay: Overlay.of(context, rootOverlay: true),
+    );
+    if (partner != null) AvatarReactions.react(partner.uid, kind.expression);
     await HapticFeedback.heavyImpact();
     await Future<void>.delayed(const Duration(milliseconds: 140));
     await HapticFeedback.heavyImpact();
@@ -287,7 +375,7 @@ class _MainShellState extends ConsumerState<MainShell>
   List<Widget> get _tabs => [
     HomeScreen(
       onOpenChat: _openChat,
-      onOpenMemories: () => setState(() => _tabIndex = _memoriesTab),
+      onOpenMemories: () => _selectTab(_memoriesTab),
       onOpenCalendar: () {
         setState(() => _tabIndex = _togetherTab);
         _togetherKey.currentState?.showTab(TogetherScreenState.calendarTab);
@@ -295,7 +383,7 @@ class _MainShellState extends ConsumerState<MainShell>
     ),
     ChatScreen(isActive: _tabIndex == _chatTab),
     const MemoriesScreen(),
-    TogetherScreen(key: _togetherKey),
+    TogetherScreen(key: _togetherKey, isActive: _tabIndex == _togetherTab),
     const PlayHubScreen(),
     UsScreen(onOpenChat: _openChat),
   ];
@@ -308,6 +396,9 @@ class _MainShellState extends ConsumerState<MainShell>
     final muted = ref.watch(mutePartnerProvider);
     // Muted: no badges for the partner's activity.
     final waitingOnMe = muted ? 0 : ref.watch(gamesWaitingOnMeProvider);
+    final unreadChat = ref.watch(chatBadgeProvider).value ?? 0;
+    final newMemories = ref.watch(memoriesBadgeProvider);
+    final newTogether = ref.watch(togetherBadgeProvider);
     if (couple == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -333,40 +424,35 @@ class _MainShellState extends ConsumerState<MainShell>
               if (!muted) const ListeningBanner(),
               NavigationBar(
                 selectedIndex: _tabIndex,
-                onDestinationSelected: (index) =>
-                    setState(() => _tabIndex = index),
+                onDestinationSelected: _selectTab,
                 destinations: [
                   const NavigationDestination(
                     icon: Icon(Icons.home_outlined),
                     selectedIcon: Icon(Icons.home),
                     label: 'Home',
                   ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.chat_bubble_outline),
-                    selectedIcon: Icon(Icons.chat_bubble),
+                  _badged(
+                    count: unreadChat,
+                    icon: Icons.chat_bubble_outline,
+                    selectedIcon: Icons.chat_bubble,
                     label: 'Chat',
                   ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.photo_album_outlined),
-                    selectedIcon: Icon(Icons.photo_album),
+                  _badged(
+                    count: newMemories,
+                    icon: Icons.photo_album_outlined,
+                    selectedIcon: Icons.photo_album,
                     label: 'Memories',
                   ),
-                  const NavigationDestination(
-                    icon: Icon(Icons.calendar_month_outlined),
-                    selectedIcon: Icon(Icons.calendar_month),
+                  _badged(
+                    count: newTogether,
+                    icon: Icons.calendar_month_outlined,
+                    selectedIcon: Icons.calendar_month,
                     label: 'Together',
                   ),
-                  NavigationDestination(
-                    icon: Badge(
-                      isLabelVisible: waitingOnMe > 0,
-                      label: Text('$waitingOnMe'),
-                      child: const Icon(Icons.sports_esports_outlined),
-                    ),
-                    selectedIcon: Badge(
-                      isLabelVisible: waitingOnMe > 0,
-                      label: Text('$waitingOnMe'),
-                      child: const Icon(Icons.sports_esports),
-                    ),
+                  _badged(
+                    count: waitingOnMe,
+                    icon: Icons.sports_esports_outlined,
+                    selectedIcon: Icons.sports_esports,
                     label: 'Play',
                   ),
                   const NavigationDestination(
@@ -380,6 +466,26 @@ class _MainShellState extends ConsumerState<MainShell>
           ),
         ),
       ),
+    );
+  }
+
+  /// A bottom-bar item with a count badge (hidden at 0), like Play's.
+  NavigationDestination _badged({
+    required int count,
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+  }) {
+    Widget withBadge(IconData i) => Badge(
+      isLabelVisible: count > 0,
+      label: Text(badgeLabel(count)),
+      child: Icon(i),
+    );
+    return NavigationDestination(
+      icon: withBadge(icon),
+      selectedIcon: withBadge(selectedIcon),
+      label: label,
+      tooltip: count > 0 ? '$label, $count new' : label,
     );
   }
 }

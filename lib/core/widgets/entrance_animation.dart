@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:couple_app/core/widgets/motion_policy.dart';
 
 /// Fades and slides [child] up into place once, delayed by [index] for a
-/// staggered list. Shows [child] straight away when motion is off.
+/// staggered list. Shows [child] straight away when motion is off, and when
+/// the list it is in has already been scrolled (so scrolling never shows
+/// empty space while items fade in).
 class EntranceAnimation extends StatefulWidget {
   const EntranceAnimation({
     super.key,
@@ -39,6 +41,10 @@ class _EntranceAnimationState extends State<EntranceAnimation>
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_c != null || !MotionPolicy.enabled(context)) return;
+    // Only the first view animates in. Items a list builds while it is
+    // being scrolled appear straight away; animating them (with their
+    // stagger delays) made a fast scroll look like a blank page.
+    if (_scrolledAway()) return;
     final delay = widget.stagger * math.min(widget.index, 8);
     final total = delay + widget.duration;
     final c = AnimationController(vsync: this, duration: total);
@@ -52,6 +58,16 @@ class _EntranceAnimationState extends State<EntranceAnimation>
       ),
     );
     c.forward();
+  }
+
+  bool _scrolledAway() {
+    final position = Scrollable.maybeOf(context)?.position;
+    if (position == null) return false;
+    if (position.isScrollingNotifier.value) return true;
+    // On a page's first frame the list hasn't been measured yet.
+    if (!position.hasPixels || !position.hasContentDimensions) return false;
+    return position.pixels > position.minScrollExtent + 1 ||
+        position.isScrollingNotifier.value;
   }
 
   @override

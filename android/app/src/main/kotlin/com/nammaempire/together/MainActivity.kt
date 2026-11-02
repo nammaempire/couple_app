@@ -14,6 +14,8 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         screenPrivacy.attach(flutterEngine)
         DeviceInfo.attach(flutterEngine)
+        OngoingCallService.attach(flutterEngine, this)
+        Haptics.attach(flutterEngine, this)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

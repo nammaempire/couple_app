@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:couple_app/core/services/voice_playback.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/calls/data/active_call.dart';
 import 'package:couple_app/features/calls/data/call_service.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
@@ -16,6 +17,7 @@ import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/features/calls/widgets/call_avatar_ring.dart';
 import 'package:couple_app/features/calls/widgets/call_backdrop.dart';
 import 'package:couple_app/features/calls/widgets/partner_initial_avatar.dart';
+import 'package:couple_app/features/chat/providers/chat_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 
 /// Full-screen incoming call, with accept and decline.
@@ -117,22 +119,27 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
       return;
     }
 
-    // Replace this screen so back does not land on a stale ringing view.
-    await Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => CallScreen(
-          session: CallSession(
-            callerId: widget.session.callerId,
-            calleeId: widget.session.calleeId,
-            type: widget.session.type,
-            status: CallStatus.accepted,
-            channelName: widget.session.channelName,
-            startedAt: widget.session.startedAt,
-            answeredAt: DateTime.now(),
-          ),
-          isOutgoing: false,
-        ),
+    final call = ActiveCall.start(
+      session: CallSession(
+        callerId: widget.session.callerId,
+        calleeId: widget.session.calleeId,
+        type: widget.session.type,
+        status: CallStatus.accepted,
+        channelName: widget.session.channelName,
+        startedAt: widget.session.startedAt,
+        answeredAt: DateTime.now(),
       ),
+      isOutgoing: false,
+      coupleId: _coupleId,
+      myUid: ref.read(currentUidProvider),
+      partnerName: ref.read(partnerNameProvider),
+      calls: _calls,
+      chat: ref.read(chatServiceProvider),
+    );
+    // Replace this screen so back does not land on a stale ringing view.
+    _closing = true;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (_) => CallScreen(call: call)),
     );
   }
 

@@ -2,7 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
+import 'package:couple_app/features/avatar/models/avatar_config.dart';
 import 'package:couple_app/features/avatar/widgets/profile_avatar.dart';
+import 'package:couple_app/features/home/widgets/love_burst.dart';
 
 /// Top of Home: greeting plus the couple photo, or both partners' avatars
 /// side by side when no couple photo is set. Each partner shows as their
@@ -17,6 +19,7 @@ class CoupleHeader extends StatelessWidget {
     this.me,
     this.partner,
     this.couplePhotoUrl,
+    this.onTapMe,
   });
 
   final String greeting;
@@ -28,6 +31,9 @@ class CoupleHeader extends StatelessWidget {
   /// Null until the partner has joined and their profile has loaded.
   final AppUser? partner;
   final String? couplePhotoUrl;
+
+  /// Tapping my own avatar (make or change it).
+  final VoidCallback? onTapMe;
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +74,7 @@ class CoupleHeader extends StatelessWidget {
             partnerName: partnerName,
             me: me,
             partner: partner,
+            onTapMe: onTapMe,
           ),
         ],
       );
@@ -110,12 +117,14 @@ class _AvatarPair extends StatelessWidget {
     required this.partnerName,
     this.me,
     this.partner,
+    this.onTapMe,
   });
 
   final String myName;
   final String partnerName;
   final AppUser? me;
   final AppUser? partner;
+  final VoidCallback? onTapMe;
 
   @override
   Widget build(BuildContext context) {
@@ -123,10 +132,17 @@ class _AvatarPair extends StatelessWidget {
       width: 84,
       height: 52,
       child: Stack(
+        // Room for the bounce when a love tap lands.
+        clipBehavior: Clip.none,
         children: [
           Positioned(
             left: 0,
-            child: _Avatar(name: myName, user: me),
+            child: _Avatar(
+              name: myName,
+              user: me,
+              onTap: onTapMe,
+              tooltip: 'Your avatar',
+            ),
           ),
           Positioned(
             right: 0,
@@ -138,21 +154,56 @@ class _AvatarPair extends StatelessWidget {
   }
 }
 
+/// One partner's picture. While they've just sent or received a love tap,
+/// their cartoon avatar pulls that tap's face and gives a little bounce.
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.name, this.user});
+  const _Avatar({required this.name, this.user, this.onTap, this.tooltip});
 
   final String name;
   final AppUser? user;
+  final VoidCallback? onTap;
+  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2.5),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Theme.of(context).scaffoldBackgroundColor,
-      ),
-      child: ProfileAvatar(user: user, size: 47, fallbackName: name),
+    final uid = user?.uid;
+    Widget avatar = ValueListenableBuilder<Map<String, AvatarExpression>>(
+      valueListenable: AvatarReactions.faces,
+      builder: (context, faces, _) {
+        final face = uid == null ? null : faces[uid];
+        return TweenAnimationBuilder<double>(
+          tween: Tween(begin: 1, end: face == null ? 1 : 1.18),
+          duration: const Duration(milliseconds: 260),
+          curve: face == null ? Curves.easeOut : Curves.elasticOut,
+          builder: (context, scale, child) =>
+              Transform.scale(scale: scale, child: child),
+          child: Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Theme.of(context).scaffoldBackgroundColor,
+            ),
+            child: ProfileAvatar(
+              user: user,
+              size: 47,
+              fallbackName: name,
+              expression: face ?? AvatarExpression.neutral,
+            ),
+          ),
+        );
+      },
     );
+    final tap = onTap;
+    if (tap != null) {
+      avatar = Tooltip(
+        message: tooltip ?? name,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: tap,
+          child: avatar,
+        ),
+      );
+    }
+    return avatar;
   }
 }

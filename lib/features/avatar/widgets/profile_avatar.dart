@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
+import 'package:couple_app/features/avatar/models/avatar_config.dart';
 import 'package:couple_app/features/avatar/widgets/avatar_view.dart';
 
 /// A person's profile picture: their cartoon avatar when they chose to show
@@ -12,6 +13,7 @@ class ProfileAvatar extends StatelessWidget {
     required this.user,
     this.size = 48,
     this.fallbackName,
+    this.expression = AvatarExpression.neutral,
   });
 
   /// Null while the profile is loading or for someone not yet joined.
@@ -22,12 +24,15 @@ class ProfileAvatar extends StatelessWidget {
   /// display name.
   final String? fallbackName;
 
+  /// The face the cartoon avatar pulls (photos and initials ignore it).
+  final AvatarExpression expression;
+
   @override
   Widget build(BuildContext context) {
     final u = user;
     final avatar = u?.avatar;
     if (u != null && avatar != null && u.showsAvatar) {
-      return AvatarView(config: avatar, size: size);
+      return AvatarView(config: avatar, expression: expression, size: size);
     }
 
     final theme = Theme.of(context);

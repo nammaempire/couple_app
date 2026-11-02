@@ -5,7 +5,7 @@
  *   chat message                 → partner, channel "messages" (prefs.messages)
  *   ringing call                 → partner, channel "calls"    (always; rings in quiet hours too)
  *   mood change                  → partner, channel "updates"  (prefs.mood)
- *   love note                    → recipient, "updates"        (prefs.messages)
+ *   love note                    → recipient, "love_notes"     (prefs.messages; its own chime)
  *   daily question answered      → partner, "updates"          (prefs.dailyQuestion)
  *
  * Nobody is pushed about their own actions. A partner who turned on
@@ -23,7 +23,7 @@ export interface Change {
   after: Data | null;
 }
 
-type Channel = "love" | "messages" | "calls" | "updates";
+type Channel = "love" | "love_notes" | "messages" | "calls" | "updates";
 type Pref = "messages" | "mood" | "dailyQuestion" | null;
 
 interface Push {
@@ -146,7 +146,7 @@ function pushesFor(actor: string, c: Change, now: number): Omit<Push, "title" | 
     case "notes": {
       const to = str(a.recipientId);
       if (!created || a.senderId !== actor || !to || to === actor) return null;
-      return { kind: "note", coupleId, to, pref: "messages", channel: "updates", ttlMs: 7 * DAY, data: { kind: "note", coupleId }, extra: a };
+      return { kind: "note", coupleId, to, pref: "messages", channel: "love_notes", ttlMs: 7 * DAY, data: { kind: "note", coupleId }, extra: a };
     }
     case "dailyQuestions": {
       const after = isPlainObject(a.answers) ? (a.answers as Data) : {};
@@ -254,7 +254,13 @@ async function deliver(uid: string, push: Push, quietHours: boolean): Promise<vo
           channelId: silent ? "quiet" : push.channel,
           tag: push.tag,
           visibility: "private",
-          ...(silent ? {} : { defaultSound: true, defaultVibrateTimings: true }),
+          ...(silent
+            ? {}
+            : push.channel === "love_notes"
+              ? // The love-note chime (res/raw/love_note.ogg); the channel
+                // sets it on Android 8+, this covers older phones.
+                { sound: "love_note", defaultVibrateTimings: true }
+              : { defaultSound: true, defaultVibrateTimings: true }),
         },
       },
     });

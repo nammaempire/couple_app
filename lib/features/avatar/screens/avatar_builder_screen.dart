@@ -9,16 +9,22 @@ import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/avatar/data/avatar_service.dart';
+import 'package:couple_app/features/avatar/data/selfie_avatar.dart';
 import 'package:couple_app/features/avatar/models/avatar_config.dart';
 import 'package:couple_app/features/avatar/providers/avatar_providers.dart';
+import 'package:couple_app/features/avatar/screens/avatar_scan_screen.dart';
 import 'package:couple_app/features/avatar/widgets/avatar_option_tile.dart';
 import 'package:couple_app/features/avatar/widgets/avatar_swatch_picker.dart';
 import 'package:couple_app/features/avatar/widgets/avatar_view.dart';
 
-/// Make or edit my cartoon avatar: a live preview, "Surprise me", undo and
-/// a tab per part. Starts from my saved avatar, or a friendly default.
+/// Make or edit my cartoon avatar: a live preview, "Scan my face",
+/// "Surprise me", undo and a tab per part. Starts from [initial] (a fresh
+/// face scan), else my saved avatar, else a friendly default.
 class AvatarBuilderScreen extends ConsumerStatefulWidget {
-  const AvatarBuilderScreen({super.key});
+  const AvatarBuilderScreen({super.key, this.initial});
+
+  /// A face scan to start from, not saved yet.
+  final SelfieAvatar? initial;
 
   @override
   ConsumerState<AvatarBuilderScreen> createState() =>
@@ -72,8 +78,31 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
     _savedConfig = me.avatar?.withBindiOnFace ?? _starter;
     // A first avatar becomes the profile picture only if there's no photo.
     _savedAsPhoto = me.avatar == null ? me.photoUrl == null : me.showsAvatar;
-    _config = _savedConfig;
+    _config = widget.initial?.avatar ?? _savedConfig;
     _asPhoto = _savedAsPhoto;
+    final scan = widget.initial;
+    if (scan != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _announceScan(scan);
+      });
+    }
+  }
+
+  void _announceScan(SelfieAvatar scan) {
+    setState(() => _expression = AvatarExpression.happy);
+    context.showSnackMessage(
+      scan.matched.isEmpty
+          ? 'Avatar ready ✨ Fine-tune it, then save.'
+          : 'Avatar ready ✨ Matched your ${scan.summary}.',
+    );
+  }
+
+  /// Live selfie → avatar; the result can still be tweaked before saving.
+  Future<void> _scan() async {
+    final scan = await AvatarScanScreen.open(context, base: _config);
+    if (scan == null || !mounted) return;
+    _apply(scan.avatar);
+    _announceScan(scan);
   }
 
   bool get _dirty => _config != _savedConfig || _asPhoto != _savedAsPhoto;
@@ -151,7 +180,9 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
             backgroundColor: Colors.transparent,
             surfaceTintColor: Colors.transparent,
             scrolledUnderElevation: 0,
-            title: const Text('Your avatar'),
+            title: Text(
+              widget.initial != null ? 'Your avatar is ready ✨' : 'Your avatar',
+            ),
             actions: [
               Padding(
                 padding: const EdgeInsets.only(right: 8),
@@ -213,8 +244,9 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
   /// The gradient behind the builder.
   static const _stagePreset = GradientPreset.lavender;
 
-  /// The live preview, undo and "Surprise me", the expression chips and
-  /// the profile-picture switch, straight on the gradient.
+  /// The live preview, undo, "Surprise me" and "Scan my face", the
+  /// expression chips and the profile-picture switch, straight on the
+  /// gradient.
   Widget _stage(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
@@ -264,15 +296,31 @@ class _AvatarBuilderScreenState extends ConsumerState<AvatarBuilderScreen> {
                 ),
               ),
             ),
-            IconButton.filledTonal(
-              tooltip: 'Surprise me',
-              onPressed: () => _apply(AvatarConfig.random()),
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.white.withValues(
-                  alpha: dark ? .16 : .75,
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton.filledTonal(
+                  tooltip: 'Surprise me',
+                  onPressed: () => _apply(AvatarConfig.random()),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(
+                      alpha: dark ? .16 : .75,
+                    ),
+                  ),
+                  icon: const Icon(Icons.casino_outlined),
                 ),
-              ),
-              icon: const Icon(Icons.casino_outlined),
+                const SizedBox(height: 8),
+                IconButton.filledTonal(
+                  tooltip: 'Scan my face',
+                  onPressed: _saving ? null : _scan,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(
+                      alpha: dark ? .16 : .75,
+                    ),
+                  ),
+                  icon: const Icon(Icons.photo_camera_front_outlined),
+                ),
+              ],
             ),
             const SizedBox(width: 8),
           ],

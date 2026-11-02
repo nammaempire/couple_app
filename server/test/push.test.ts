@@ -105,6 +105,8 @@ describe("triggers", () => {
     assert.equal(sent[2].message.android.ttl, 30_000);
     assert.deepEqual(titles[3].slice(0, 1), ["Annu is feeling happy 😊"]);
     assert.equal(titles[4][0], "💌 Annu sealed a love note for you");
+    assert.equal(titles[4][2], "love_notes");
+    assert.equal(sent[4].message.android.notification.sound, "love_note");
     assert.match(titles[4][1], /^It opens /);
     assert.deepEqual(titles[5], ["Annu answered today's question", "Your turn! ✍️", "updates"]);
     assert.equal(sent.length, 6);

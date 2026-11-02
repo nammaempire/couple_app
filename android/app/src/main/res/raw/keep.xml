@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The love-note sound is only referenced by name from the notification
+     channel, so tell resource shrinking (release builds) to keep it. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/love_note" />

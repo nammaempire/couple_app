@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/calls/data/active_call.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
 import 'package:couple_app/features/calls/screens/call_screen.dart';
+import 'package:couple_app/features/chat/providers/chat_providers.dart';
 import 'package:couple_app/features/couple/providers/couple_providers.dart';
 
 /// Places a call and opens the outgoing call screen. Used by the chat app
@@ -16,6 +18,13 @@ Future<void> placeCall(
   WidgetRef ref, {
   required CallType type,
 }) async {
+  // Already on a call: show it instead of starting another.
+  final ongoing = ActiveCall.current.value;
+  if (ongoing != null && !ongoing.ended) {
+    await CallScreen.open(Navigator.of(context), ongoing);
+    return;
+  }
+
   final myUid = ref.read(currentUidProvider);
   final partnerUid = ref.read(coupleProvider).value?.partnerIdFor(myUid);
   if (partnerUid == null) {
@@ -34,12 +43,16 @@ Future<void> placeCall(
     );
     if (!context.mounted) return;
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => CallScreen(session: session, isOutgoing: true),
-      ),
+    final call = ActiveCall.start(
+      session: session,
+      isOutgoing: true,
+      coupleId: coupleId,
+      myUid: myUid,
+      partnerName: ref.read(partnerNameProvider),
+      calls: calls,
+      chat: ref.read(chatServiceProvider),
     );
+    await CallScreen.open(Navigator.of(context), call);
   } catch (_) {
     if (!context.mounted) return;
     context.showSnackMessage('Could not start the call.');

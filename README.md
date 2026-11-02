@@ -364,11 +364,19 @@ their screens. `MainShell` keeps the reminder inputs alive with
 or share sheet, and a setup checklist (see *Onboarding flow*).
 
 **Home**
-- Couple header with the couple photo, or both partners' avatars
+- Couple header with the couple photo, or both partners' avatars. Tap your
+  own avatar to make it from a selfie (no avatar yet) or to retake the
+  selfie / edit it
 - Quick actions: message, voice call, video call, dates
 - Days together, with years/months/days and the next milestone
 - Send love: one-tap Thinking of you, Love you, Miss you, Hug and Kiss that
-  buzz the partner's phone
+  buzz the partner's phone. Each button shows your avatar pulling that face.
+  A tap plays the love burst on both phones (the sender's right away, the
+  partner's when it arrives with the app open): the sender's avatar, big,
+  pulling the tap's face (or the emoji, without an avatar), small emojis
+  bursting out to fill the screen, over a glow in the tap's colour, for 2.3
+  seconds. The header avatars copy the face for a moment. Turned off with
+  the phone's "Remove animations" setting
 - Coming up: countdowns to the anniversary, both birthdays and the next meetup
 - Moods for both partners, each with an optional note
 - Daily question that unlocks once both have answered, with a gentle streak
@@ -402,6 +410,15 @@ bindi, earrings, turban or headscarf, 7 outfits and a background. Preview
 12 expressions; "Use as my profile picture" shows it everywhere your photo
 would (home header, chat, calls). Dice for a random start, undo for the last
 change.
+
+**Selfie to avatar.** The camera button in the builder, or tapping your
+avatar on Home. A round front-camera preview counts down 3-2-1 and takes the
+selfie itself; ML Kit finds the face on the phone and the colours around it
+pick the skin tone, hair colour, short / long / bald, a beard or stubble and
+the outfit colour. Everything else is kept from your current avatar, and the
+result opens in the builder to fine-tune and save. Only the live camera is
+used (no gallery photos), the selfie is deleted right after the scan and
+nothing is uploaded.
 
 **Couple stickers.** Chat → the smiley button next to the message box. 35
 scenes of the two of you (a warm hug, a slow dance, the same moon from two
@@ -662,6 +679,18 @@ and no App ID. The voice and video buttons in the chat header start them.
   and reconnecting after a network change.
 - Audio and video then go directly between the phones, encrypted
   (DTLS-SRTP). They do not pass through the Us server.
+- The call lives in `ActiveCall` (`lib/features/calls/data/active_call.dart`),
+  not in its screen. Back, the arrow on the call screen, switching tabs or
+  leaving the app don't end it; a green "Tap to return to call" bar sits
+  above every screen until it ends. Only the red button, the partner hanging
+  up, or a connection lost for 30 seconds end a call.
+- While a call is connected, `OngoingCallService.kt` (an Android foreground
+  service, microphone/camera type) shows the "Ongoing call" notification.
+  That is what lets Android keep the microphone, camera and app running in
+  the background. Swiping the app away from recent apps ends the call.
+- **Play Store:** apps targeting Android 14+ must declare microphone and
+  camera foreground services in Play Console (App content → Foreground
+  service permissions), describing them as "ongoing voice/video call".
 
 ### Network relay (TURN) — set up before the Play Store release
 

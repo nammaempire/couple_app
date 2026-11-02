@@ -23,6 +23,16 @@
         android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="31"/>
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+
+    <!-- Keeping a call going outside the app: a foreground service shows
+         the "Ongoing call" notification while the microphone (and camera)
+         stay in use (OngoingCallService.kt). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+
+    <!-- A buzz when a love note arrives while the app is open (Haptics.kt). -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
 
     <!-- Calendar reminders and love-note alerts, scheduled on this device.
@@ -100,6 +110,10 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher_monochrome"/>
+        <service
+            android:name=".OngoingCallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera"/>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

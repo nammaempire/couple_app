@@ -5,19 +5,27 @@ import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:flutter/services.dart';
 
 import 'package:couple_app/core/utils/snackbar.dart';
+import 'package:couple_app/features/avatar/models/avatar_config.dart';
+import 'package:couple_app/features/avatar/widgets/avatar_view.dart';
 import 'package:couple_app/features/home/models/love_tap.dart';
 
-/// One-tap love messages: each chip buzzes the partner's phone.
+/// One-tap love messages: each chip buzzes the partner's phone and plays
+/// the love burst on both phones.
 class LoveTapsCard extends StatefulWidget {
   const LoveTapsCard({
     super.key,
     required this.partnerName,
     required this.enabled,
     required this.onSend,
+    this.myAvatar,
   });
 
   final String partnerName;
   final bool enabled;
+
+  /// My avatar: each button shows it pulling that tap's face (else the
+  /// tap's emoji).
+  final AvatarConfig? myAvatar;
   final Future<void> Function(LoveTap tap) onSend;
 
   @override
@@ -85,6 +93,7 @@ class _LoveTapsCardState extends State<LoveTapsCard> {
                 Expanded(
                   child: _TapButton(
                     tap: tap,
+                    avatar: widget.myAvatar,
                     highlighted: sent == tap,
                     onPressed: widget.enabled ? () => _send(tap) : null,
                   ),
@@ -102,9 +111,11 @@ class _TapButton extends StatelessWidget {
     required this.tap,
     required this.highlighted,
     required this.onPressed,
+    this.avatar,
   });
 
   final LoveTap tap;
+  final AvatarConfig? avatar;
   final bool highlighted;
   final VoidCallback? onPressed;
 
@@ -140,7 +151,28 @@ class _TapButton extends StatelessWidget {
                                 : .62,
                           ),
                   ),
-                  child: Text(tap.emoji, style: const TextStyle(fontSize: 24)),
+                  child: avatar == null
+                      ? Text(tap.emoji, style: const TextStyle(fontSize: 24))
+                      : Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            AvatarView(
+                              config: avatar!,
+                              expression: tap.expression,
+                              size: 48,
+                            ),
+                            // The tap's emoji as a badge, so it still reads
+                            // at a glance.
+                            Positioned(
+                              right: -4,
+                              bottom: -4,
+                              child: Text(
+                                tap.emoji,
+                                style: const TextStyle(fontSize: 15),
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 6),

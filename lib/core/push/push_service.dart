@@ -54,6 +54,14 @@ class PushService {
       importance: Importance.high,
     ),
     AndroidNotificationChannel(
+      'love_notes',
+      'Love notes',
+      description: 'When your partner sends you a love note',
+      importance: Importance.high,
+      // The app's own chime (android/app/src/main/res/raw/love_note.ogg).
+      sound: RawResourceAndroidNotificationSound('love_note'),
+    ),
+    AndroidNotificationChannel(
       'calls',
       'Calls',
       description: 'Incoming voice and video calls',
