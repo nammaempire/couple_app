@@ -17,7 +17,29 @@ class Invite {
   final String? coupleName;
 
   final bool used;
+
+  /// When the code was made or last renewed. Unknown (older invites) counts
+  /// as expired.
   final DateTime? createdAt;
+
+  /// How long a code works. Opening the invite screen (or sending a request
+  /// by mobile number) renews it, keeping the same code.
+  static const lifetime = Duration(days: 7);
+
+  /// Renewed this long before it would run out, so a code just shared keeps
+  /// working for days.
+  static const renewWithin = Duration(days: 6);
+
+  bool isExpired(DateTime now) {
+    final at = createdAt;
+    return at == null || !now.isBefore(at.add(lifetime));
+  }
+
+  /// Due for renewal: expired, or less than a day left.
+  bool needsRenewal(DateTime now) {
+    final at = createdAt;
+    return at == null || !now.isBefore(at.add(renewWithin));
+  }
 
   const Invite({
     required this.code,

@@ -2,7 +2,10 @@ import Fastify, { type FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
 import { bearer, verifyToken } from "./auth.js";
 import { ApiError } from "./errors.js";
+import { registerDeletePage } from "./deletePage.js";
+import { backupHealth } from "./ops/backup.js";
 import { registerFiles } from "./files.js";
+import { registerLegalPages } from "./legal.js";
 import { callables } from "./functions/index.js";
 import { registerWebhooks } from "./functions/webhooks.js";
 import { registerRealtime } from "./realtime.js";
@@ -32,6 +35,13 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   app.get("/health", async () => {
     await pool.query("SELECT 1");
     return { ok: true };
+  });
+
+  // For an uptime monitor: 503 when the newest database backup is more than
+  // 36 hours old (or there is none), so a stopped backup raises an alert.
+  app.get("/health/backup", async (_req, reply) => {
+    const h = await backupHealth();
+    return reply.status(h.ok ? 200 : 503).send(h);
   });
 
   const caller = async (authorization: string | undefined) => ({
@@ -74,6 +84,8 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
 
   await registerFiles(app);
   await registerWebhooks(app);
+  await registerDeletePage(app);
+  await registerLegalPages(app);
   await registerRealtime(app);
   return app;
 }

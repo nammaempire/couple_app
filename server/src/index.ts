@@ -2,6 +2,7 @@ import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { migrate } from "./migrate.js";
 import { startScheduler } from "./functions/scheduler.js";
+import { startBackups } from "./ops/backup.js";
 
 /** Refuse to start in production with settings that would be unsafe. */
 function checkProductionConfig(): void {
@@ -13,7 +14,11 @@ function checkProductionConfig(): void {
   if (!/^https:\/\//.test(config.publicUrl)) problems.push("PUBLIC_URL must be the server's https:// address.");
   if (!config.s3.bucket) problems.push("S3_BUCKET (and the other S3_* settings) must be set.");
   if (process.env.AUTH_TEST_MODE === "true") problems.push("AUTH_TEST_MODE must not be set in production.");
-  if (problems.length) {
+  if (config.backups.enabled && !config.backups.encryptionKey) {
+    // The privacy policy says backups are encrypted.
+    console.warn("BACKUP_ENCRYPTION_KEY is not set: daily backups are stored unencrypted. Set it on Railway.");
+  }
+    if (problems.length) {
     console.error("Refusing to start:\n- " + problems.join("\n- "));
     process.exit(1);
   }
@@ -27,7 +32,11 @@ async function main() {
   checkProductionConfig();
   await migrate();
   const app = await buildApp({ logger: true });
-  const stop: () => unknown = config.runScheduler ? startScheduler() : () => {};
+  const stopJobs: () => unknown = config.runScheduler ? startScheduler() : () => {};
+  // Daily database backups to the bucket (needs a real bucket, not memory).
+  const stopBackups: () => unknown =
+    config.runScheduler && config.backups.enabled && config.s3.bucket ? startBackups() : () => {};
+  const stop = () => Promise.all([stopJobs(), stopBackups()]);
   const shutdown = async () => {
     await stop();
     await app.close();

@@ -4,14 +4,19 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- Sending photos: camera capture and gallery access -->
+    <!-- Camera: photos in chat, video calls and the selfie-to-avatar scan.
+         Picking photos and videos uses Android's photo picker, which needs
+         no storage or media permission. Removed even if a library asks for
+         them, since Google Play asks apps to justify photo access. -->
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32"/>
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove"/>
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove"/>
 
-    <!-- The camera is optional; the app still works with gallery only. -->
+    <!-- The camera is optional; the app still works with the photo picker. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
     <!-- Voice and video calling (WebRTC) -->
@@ -22,7 +27,10 @@
     <uses-permission
         android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="31"/>
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <!-- Not needed by WebRTC (it was for the old calling SDK). -->
+    <uses-permission
+        android:name="android.permission.READ_PHONE_STATE"
+        tools:node="remove"/>
 
     <!-- Keeping a call going outside the app: a foreground service shows
          the "Ongoing call" notification while the microphone (and camera)

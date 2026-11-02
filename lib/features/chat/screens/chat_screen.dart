@@ -945,6 +945,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen>
                   ),
                 ChatInput(
                   enabled: _uploadProgress == null,
+                  active: widget.isActive,
                   onSendText: _sendText,
                   onPickCamera: () => _sendPhoto(ImageSource.camera),
                   onAttach: _openAttachSheet,

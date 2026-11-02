@@ -41,6 +41,10 @@ export interface Bucket {
   delete(key: string): Promise<void>;
   deletePrefix(prefix: string): Promise<number>;
   signedGetUrl(key: string, seconds: number): Promise<string>;
+  /** Objects whose key starts with [prefix] (for backups), in key order. */
+  list(prefix: string): Promise<Array<{ key: string; size: number; updated: string }>>;
+  /** An object's bytes, or null when it doesn't exist (for restoring backups). */
+  getBytes(key: string): Promise<Buffer | null>;
   /**
    * Buckets that can't hand out a URL of their own (the in-memory one used
    * for tests and local runs) return the bytes here, and /f/ serves them.
@@ -103,6 +107,32 @@ class S3Bucket implements Bucket {
     return n;
   }
 
+  async list(prefix: string): Promise<Array<{ key: string; size: number; updated: string }>> {
+    const out: Array<{ key: string; size: number; updated: string }> = [];
+    let token: string | undefined;
+    do {
+      const r = await this.s3.send(new ListObjectsV2Command({ Bucket: this.b, Prefix: prefix, ContinuationToken: token }));
+      for (const o of r.Contents ?? []) {
+        if (o.Key) out.push({ key: o.Key, size: o.Size ?? 0, updated: (o.LastModified ?? new Date()).toISOString() });
+      }
+      token = r.IsTruncated ? r.NextContinuationToken : undefined;
+    } while (token);
+    return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  }
+
+  async getBytes(key: string): Promise<Buffer | null> {
+    try {
+      const r = await this.s3.send(new GetObjectCommand({ Bucket: this.b, Key: key }));
+      const chunks: Buffer[] = [];
+      for await (const c of r.Body as Readable) chunks.push(Buffer.from(c as Buffer));
+      return Buffer.concat(chunks);
+    } catch (e) {
+      const status = (e as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      if (status === 404 || (e as { name?: string }).name === "NoSuchKey") return null;
+      throw e;
+    }
+  }
+
   signedGetUrl(key: string, seconds: number): Promise<string> {
     return getSignedUrl(this.s3, new GetObjectCommand({ Bucket: this.b, Key: key }), { expiresIn: seconds });
   }
@@ -133,6 +163,15 @@ export class MemoryBucket implements Bucket {
   }
   async signedGetUrl(key: string) {
     return `memory://${key}`;
+  }
+  async list(prefix: string) {
+    return [...this.objects.entries()]
+      .filter(([k]) => k.startsWith(prefix))
+      .map(([key, o]) => ({ key, size: o.bytes.length, updated: o.meta.updated }))
+      .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  }
+  async getBytes(key: string) {
+    return this.objects.get(key)?.bytes ?? null;
   }
   async read(key: string) {
     return this.objects.get(key) ?? null;

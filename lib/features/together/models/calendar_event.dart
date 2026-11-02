@@ -1,5 +1,6 @@
 import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 enum EventType {
   dateNight('dateNight', 'Date night', '🍷', Icons.wine_bar_outlined),
@@ -107,13 +108,18 @@ class CalendarEvent {
   factory CalendarEvent.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? <String, dynamic>{};
     final location = (data['location'] as String?)?.trim();
+    // All-day events are calendar days, the same day on both phones
+    // whatever their time zones; timed events are moments.
+    final allDay = (data['allDay'] as bool?) ?? true;
+    DateTime? when(Object? v) =>
+        allDay ? CalendarDate.read(v) : (v is Timestamp ? v.toDate() : null);
     return CalendarEvent(
       id: doc.id,
       title: (data['title'] as String?) ?? '',
       type: EventType.fromId(data['type'] as String?),
-      start: (data['start'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      end: (data['end'] as Timestamp?)?.toDate(),
-      allDay: (data['allDay'] as bool?) ?? true,
+      start: when(data['start']) ?? DateTime.now(),
+      end: when(data['end']),
+      allDay: allDay,
       location: (location == null || location.isEmpty) ? null : location,
       notes: (data['notes'] as String?) ?? '',
       budget: data['budget'] as num?,
@@ -129,8 +135,12 @@ class CalendarEvent {
     return {
       'title': title.trim(),
       'type': type.id,
-      'start': Timestamp.fromDate(start),
-      'end': end == null ? null : Timestamp.fromDate(end!),
+      'start': allDay ? CalendarDate.write(start) : Timestamp.fromDate(start),
+      'end': end == null
+          ? null
+          : allDay
+          ? CalendarDate.write(end!)
+          : Timestamp.fromDate(end!),
       'allDay': allDay,
       'location': (trimmedLocation == null || trimmedLocation.isEmpty)
           ? null

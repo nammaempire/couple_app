@@ -1,6 +1,7 @@
 import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/avatar/models/avatar_config.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// Which kinds of notification this user wants. The server reads them before
 /// sending push notifications (server/src/push/triggers.ts); reminders on the
@@ -159,7 +160,7 @@ class AppUser {
       displayName: (data['displayName'] as String?) ?? 'Me',
       photoUrl: data['photoUrl'] as String?,
       nickname: data['nickname'] as String?,
-      birthday: (data['birthday'] as Timestamp?)?.toDate(),
+      birthday: CalendarDate.read(data['birthday']),
       coupleId: coupleId,
       profileComplete: (data['profileComplete'] as bool?) ?? legacyDone,
       setupComplete: (data['setupComplete'] as bool?) ?? legacyDone,

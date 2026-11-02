@@ -16,7 +16,7 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 
-// Some plugins (agora_rtc_engine among them) still declare an old compileSdk in
+// Some plugins still declare an old compileSdk in
 // their own build.gradle, while the AndroidX libraries they pull in require 34+.
 // That mismatch fails `checkDebugAarMetadata`. Raising compileSdk only changes
 // which APIs are visible at compile time — it does not touch minSdk or

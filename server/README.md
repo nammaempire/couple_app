@@ -112,7 +112,10 @@ question — the phone buzzes even when the app is closed):
 
 | Variable | Value |
 |---|---|
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | the whole content of a Firebase service-account key (Firebase console → Project settings → Service accounts → Generate new private key). Paste it with **+ New Variable** (not the Raw Editor). Without it, pushes are skipped. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | the whole content of a Firebase service-account key (Firebase console → Project settings → Service accounts → Generate new private key). Paste it with **+ New Variable** (not the Raw Editor). Without it, pushes are skipped, and "Delete my account" leaves deleting the Firebase sign-in to the app. |
+| `SUPPORT_EMAIL` | the contact email on the public pages `/privacy`, `/terms` and `/delete-account` (deletion requests without the app). Set it before publishing. |
+| `COMPANY_ADDRESS` | Reset95 Private Limited's registered address, shown in the privacy policy and terms. |
+| `GRIEVANCE_OFFICER` | the Grievance Officer's name, shown in the privacy policy (Indian IT Rules). |
 
 For in-app purchases (can be added later; until then `verifyPurchase`
 answers "unavailable"):
@@ -130,7 +133,7 @@ these, calls use STUN only:
 
 | Variable | Value |
 |---|---|
-| `TURN_URLS` | comma-separated, e.g. `turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:5349?transport=tcp` |
+| `TURN_URLS` | comma-separated, e.g. `turn:turn.example.com:3478?transport=udp,turn:turn.example.com:3478?transport=tcp,turns:turn.example.com:443?transport=tcp`. `turn/setup-coturn.sh` sets up the relay and prints all three TURN values. |
 | `TURN_SECRET` | the same value as `static-auth-secret` in coturn (`use-auth-secret` mode) |
 | `TURN_TTL_SECONDS` | how long each TURN login lasts (default `21600`, 6 hours) |
 
@@ -182,6 +185,49 @@ to copy all Firestore documents and Storage files into Railway. It is safe to
 run more than once. Firebase itself is not changed.
 
 ---
+
+## Backups and monitoring
+
+**Daily backups (automatic).** Every hour the server checks the newest backup
+and, once it's a day old, makes a new one: a consistent snapshot of every
+table, gzip-compressed and encrypted (AES-256-GCM), uploaded to the bucket at
+`backups/db/<time>.jsonl.gz.enc`. Backups older than 30 days are deleted (the
+privacy policy promises 30 days). The app can never reach them. Photos and
+videos aren't copied; the bucket keeps those itself.
+
+| Variable | |
+|---|---|
+| `BACKUP_ENCRYPTION_KEY` | **Set this.** A long random passphrase (e.g. 40+ random letters and digits). Save a copy in a password manager: without it no backup can be restored. Don't change it later, or older backups need the old one. |
+| `BACKUP_RETENTION_DAYS` | optional, default and maximum `30` |
+| `BACKUPS_ENABLED` | optional, `false` turns backups off |
+
+**Check backups / restore.** In `server/`, run `railway ssh` (or Railway →
+us-server → ⋮ → SSH), then:
+
+```
+node dist/ops/backup-cli.js list            # every backup
+node dist/ops/backup-cli.js now             # make one right now
+node dist/ops/backup-cli.js check latest    # restore drill: read it, change nothing
+node dist/ops/backup-cli.js restore latest --replace   # put the database back as it was
+```
+
+Do a `check latest` once a month, so you know restoring works. `restore`
+without `--replace` only fills an empty database (for example a new Railway
+Postgres after losing the old one).
+
+**Monitoring (free, 5 minutes).** Make a free account at an uptime service
+such as UptimeRobot or Better Stack, and add two HTTP monitors with email
+alerts:
+
+1. `https://<server>/health` every 5 minutes: is the server up and reaching
+   the database?
+2. `https://<server>/health/backup` every hour: it answers 503 when the
+   newest backup is more than 36 hours old, so a stopped backup raises an
+   alert.
+
+On Railway also turn on, in the project's settings: **Usage limits / alerts**
+(an email before the bill passes an amount you choose) and deploy-failure
+**notifications**.
 
 ## Develop and test locally
 

@@ -363,24 +363,37 @@ class ChatService {
     return snap.docs.map(Message.fromDoc).toList();
   }
 
-  /// Every photo and video in the conversation sent after [clearedAt],
-  /// newest first. The cut-off is applied here: with the `type` filter it
-  /// would need a composite index.
+  /// How many photos and videos [fetchMedia] returns at a time.
+  static const mediaPageSize = 60;
+
+  /// Photos and videos in the conversation, newest first, one page at a
+  /// time: pass the oldest `sentAt` you have as [before] for the next page.
+  /// Anything sent before [clearedAt] ("clear chat") is left out. A page
+  /// shorter than [limit] is the last one.
   Future<List<Message>> fetchMedia(
     String coupleId, {
     DateTime? clearedAt,
+    DateTime? before,
+    int limit = mediaPageSize,
   }) async {
-    final snap = await _messages(
-      coupleId,
-    ).where('type', whereIn: ['image', 'video']).limit(1000).get();
-    final list = snap.docs
+    var query = _messages(coupleId).where('type', whereIn: ['image', 'video']);
+    if (before != null) {
+      query = query.where('sentAt', isLessThan: Timestamp.fromDate(before));
+    }
+    if (clearedAt != null) {
+      query = query.where(
+        'sentAt',
+        isGreaterThan: Timestamp.fromDate(clearedAt),
+      );
+    }
+    final snap = await query
+        .orderBy('sentAt', descending: true)
+        .limit(limit)
+        .get();
+    return snap.docs
         .map(Message.fromDoc)
         .where((m) => !m.isClearedBy(clearedAt))
         .toList();
-    list.sort(
-      (a, b) => (b.sentAt ?? DateTime(0)).compareTo(a.sentAt ?? DateTime(0)),
-    );
-    return list;
   }
 
   Future<void> deleteMessage({

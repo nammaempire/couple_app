@@ -3,7 +3,7 @@
 // events, and the simple shared collections. Not a port; checks the ported
 // rules against firestore.rules directly.
 import { describe, it } from "node:test";
-import { DAY, ST, admin, as, denied, fromNow, hidden, ok, useDb } from "./rules-helpers.js";
+import { DAY, ST, DEL, admin, ts, as, denied, fromNow, hidden, ok, useDb } from "./rules-helpers.js";
 
 const C = "couple1";
 
@@ -35,7 +35,7 @@ describe("pairing by invite code", () => {
     await ok(as("carol").set("users/carol", { displayName: "Carol", coupleId: null }));
     await ok(as("carol").batch()
       .set("couples/c2", { memberIds: ["carol"], inviteCode: "CODE22" })
-      .set("invites/CODE22", { coupleId: "c2", createdBy: "carol", used: false })
+      .set("invites/CODE22", { coupleId: "c2", createdBy: "carol", used: false, createdAt: ST })
       .update("users/carol", { coupleId: "c2" })
       .commit());
     // The invite id must be the couple's code; the couple must be yours.
@@ -48,7 +48,7 @@ describe("pairing by invite code", () => {
 
   it("joining consumes the invite in the same transaction; nobody else can be added", async () => {
     await admin.set("couples/c2", { memberIds: ["carol"], inviteCode: "CODE22" });
-    await admin.set("invites/CODE22", { coupleId: "c2", createdBy: "carol", used: false });
+    await admin.set("invites/CODE22", { coupleId: "c2", createdBy: "carol", used: false, createdAt: fromNow(-DAY) });
     await admin.set("users/dave", { displayName: "Dave", coupleId: null });
     // Not without using the invite.
     await denied(as("dave").update("couples/c2", { memberIds: ["carol", "dave"], activatedAt: ST }));
@@ -86,6 +86,28 @@ describe("pairing by invite code", () => {
     await ok(as("carol").delete("couples/c3"));
     await denied(as("carol").set("couples/c4", { memberIds: ["carol", "dave"], inviteCode: "C4C4C4" }));
     await ok(as("carol").set("couples/c4", { memberIds: ["carol"], inviteCode: "C4C4C4" }));
+  });
+
+  it("invites expire after a week; the creator renews the same code", async () => {
+    await admin.set("couples/c5", { memberIds: ["carol"], inviteCode: "OLD555" });
+    await admin.set("invites/OLD555", { coupleId: "c5", createdBy: "carol", used: false, createdAt: fromNow(-8 * DAY) });
+    await admin.set("users/dave", { displayName: "Dave", coupleId: null });
+    const join = () =>
+      as("dave").batch()
+        .update("couples/c5", { memberIds: ["carol", "dave"], activatedAt: ST })
+        .update("invites/OLD555", { used: true, usedBy: "dave", usedAt: ST })
+        .update("users/dave", { coupleId: "c5" })
+        .commit();
+    await denied(join());
+    // Only the creator renews, only the time, and only to now.
+    await denied(as("dave").update("invites/OLD555", { createdAt: ST }));
+    await denied(as("carol").update("invites/OLD555", { createdAt: fromNow(30 * DAY) }));
+    await denied(as("carol").update("invites/OLD555", { createdAt: ST, coupleId: "c2" }));
+    await ok(as("carol").update("invites/OLD555", { createdAt: ST }));
+    await ok(join());
+    // A new invite can't be back- or forward-dated.
+    await admin.set("couples/c6", { memberIds: ["erin"], inviteCode: "NEW666" });
+    await denied(as("erin").set("invites/NEW666", { coupleId: "c6", createdBy: "erin", used: false, createdAt: fromNow(30 * DAY) }));
   });
 
   it("the invite creator withdraws it; only the joiner marks it used", async () => {
@@ -170,17 +192,74 @@ describe("simple shared collections", () => {
     await ok(as("bob").get(p("moods/alice")));
     await ok(as("alice").delete(p("moods/alice")));
   });
-  it("daily questions: either writes, nobody deletes", async () => {
-    await ok(as("alice").set(p("dailyQuestions/2026-10-24"), { answers: { alice: "a" } }));
-    await ok(as("bob").set(p("dailyQuestions/2026-10-24"), { answers: { bob: "b" } }, { merge: true }));
-    await denied(as("alice").delete(p("dailyQuestions/2026-10-24")));
+  it("daily questions: each writes only their own answer; nobody deletes", async () => {
+    const day = p("dailyQuestions/2026-10-24");
+    await ok(as("alice").set(day, { prompt: "Q?", date: "2026-10-24", answers: { alice: { text: "a" } } }));
+    await ok(as("bob").set(day, { answers: { bob: { text: "b" } } }, { merge: true }));
+    // Changing your own answer is fine; the partner's or the prompt is not.
+    await ok(as("bob").set(day, { answers: { bob: { text: "b2" } } }, { merge: true }));
+    await denied(as("bob").set(day, { answers: { alice: { text: "hacked" } } }, { merge: true }));
+    await denied(as("bob").update(day, { "answers.alice": DEL }));
+    await denied(as("bob").update(day, { prompt: "Other?" }));
+    await denied(as("bob").set(day, { answers: { bob: { text: "b" } } }));
+    // Creating: only your own answer, and the date must be the document's.
+    await denied(as("alice").set(p("dailyQuestions/2026-10-25"), { answers: { bob: { text: "x" } } }));
+    await denied(as("alice").set(p("dailyQuestions/2026-10-26"), { date: "2026-10-27", answers: {} }));
+    await denied(as("alice").set(p("dailyQuestions/tomorrow"), { answers: { alice: { text: "x" } } }));
+    await denied(as("alice").delete(day));
     await denied(as("carol").set(p("dailyQuestions/2026-10-25"), {}));
   });
-  it("calls: the caller rings as themselves; either ends it", async () => {
-    await denied(as("alice").set(p("call/current"), { callerId: "bob", status: "ringing" }));
-    await ok(as("alice").set(p("call/current"), { callerId: "alice", status: "ringing" }));
-    await ok(as("bob").update(p("call/current"), { status: "accepted" }));
-    await ok(as("bob").delete(p("call/current")));
+  it("calls: ring as yourself to your partner; one call at a time", async () => {
+    const callDoc = p("call/current");
+    const ring = (from: string, to: string, channelName: string, extra: object = {}) => ({
+      callerId: from,
+      calleeId: to,
+      type: "voice",
+      status: "ringing",
+      channelName,
+      startedAt: ST,
+      answeredAt: null,
+      endedAt: null,
+      ...extra,
+    });
+    await denied(as("alice").set(callDoc, ring("bob", "alice", "chan00001")));
+    await denied(as("alice").set(callDoc, ring("alice", "carol", "chan00001")));
+    await denied(as("alice").set(callDoc, ring("alice", "bob", "chan00001", { type: "fax" })));
+    await ok(as("alice").set(callDoc, ring("alice", "bob", "chan00001")));
+    // Bob calling at the same moment can't replace Alice's ringing call.
+    await denied(as("bob").set(callDoc, ring("bob", "alice", "chan00002")));
+    // Only the callee answers; the call's details can't be changed.
+    await denied(as("alice").update(callDoc, { status: "accepted" }));
+    await denied(as("bob").update(callDoc, { channelName: "chan99999" }));
+    await ok(as("bob").update(callDoc, { status: "accepted", answeredAt: ST }));
+    await denied(as("alice").set(callDoc, ring("alice", "bob", "chan00003")));
+    await ok(as("alice").update(callDoc, { status: "ended", endedAt: ST }));
+    await denied(as("bob").update(callDoc, { status: "accepted" }));
+    // Once it's over, a new call may ring on the same document.
+    await ok(as("bob").set(callDoc, ring("bob", "alice", "chan00004", { type: "video" })));
+    await ok(as("alice").update(callDoc, { status: "declined", endedAt: ST }));
+    await ok(as("bob").delete(callDoc));
+  });
+  it("calls: a ring nobody ended long ago doesn't block the next call", async () => {
+    const callDoc = p("call/current");
+    await admin.set(callDoc, {
+      callerId: "alice",
+      calleeId: "bob",
+      type: "voice",
+      status: "ringing",
+      channelName: "chanStale1",
+      startedAt: ts(Date.now() - 2 * 60_000),
+    });
+    await ok(
+      as("bob").set(callDoc, {
+        callerId: "bob",
+        calleeId: "alice",
+        type: "voice",
+        status: "ringing",
+        channelName: "chanFresh1",
+        startedAt: ST,
+      }),
+    );
   });
   it("nudges are append-only, sent as yourself", async () => {
     const id = await ok(as("alice").add(p("nudges"), { senderId: "alice", sentAt: ST }));

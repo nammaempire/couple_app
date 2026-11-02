@@ -101,6 +101,14 @@ class PairRequestService {
           throw PairingException(couldNotPair);
         }
         couple = myCouple;
+        // An invite made long ago may have expired: renew it so the
+        // request can be accepted.
+        await _couples.ensureInvite(
+          couple: myCouple,
+          uid: me.uid,
+          inviterName: me.displayName,
+          inviterPhotoUrl: me.photoUrl,
+        );
       } else if (me.coupleId == null) {
         couple = await _couples.createCouple(
           me.uid,

@@ -5,6 +5,7 @@ import 'package:couple_app/core/backend/backend.dart';
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/couple/models/couple.dart';
 import 'package:couple_app/features/couple/models/invite.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// Thrown when joining with a code that is invalid or already used up.
 class PairingException implements Exception {
@@ -73,7 +74,7 @@ class CoupleService {
         'memberIds': [uid],
         'createdAt': FieldValue.serverTimestamp(),
         'coupleName': (name == null || name.isEmpty) ? null : name,
-        'startDate': startDate == null ? null : Timestamp.fromDate(startDate),
+        'startDate': CalendarDate.writeOrNull(startDate),
       });
       batch.set(_inviteDoc(code), {
         'coupleId': coupleRef.id,
@@ -105,8 +106,10 @@ class CoupleService {
     throw lastError!;
   }
 
-  /// Makes sure the invite document for a waiting couple exists. Couples
-  /// created before invites had their own collection only carry the code.
+  /// Makes sure the invite for a waiting couple exists and works for
+  /// another week (codes expire after [Invite.lifetime]; renewing keeps the
+  /// same code). Couples created before invites had their own collection
+  /// only carry the code, so it is written here.
   Future<void> ensureInvite({
     required Couple couple,
     required String uid,
@@ -116,7 +119,15 @@ class CoupleService {
     if (couple.isComplete || couple.inviteCode.isEmpty) return;
     final ref = _inviteDoc(couple.inviteCode);
     final snap = await ref.get();
-    if (snap.exists) return;
+    if (snap.exists) {
+      final invite = Invite.fromDoc(snap);
+      if (!invite.used &&
+          invite.createdBy == uid &&
+          invite.needsRenewal(DateTime.now())) {
+        await ref.update({'createdAt': FieldValue.serverTimestamp()});
+      }
+      return;
+    }
 
     await ref.set({
       'coupleId': couple.id,
@@ -153,6 +164,12 @@ class CoupleService {
     }
     if (invite.used) {
       throw PairingException('That invite has already been used.');
+    }
+    if (invite.isExpired(DateTime.now())) {
+      throw PairingException(
+        'That code has expired. Ask ${invite.inviterName} to open their '
+        'invite in the app, and the same code will work again.',
+      );
     }
     return invite;
   }
@@ -257,7 +274,7 @@ class CoupleService {
     required DateTime? date,
   }) {
     return _db.collection('couples').doc(coupleId).set({
-      'startDate': date == null ? null : Timestamp.fromDate(date),
+      'startDate': CalendarDate.writeOrNull(date),
     }, SetOptions(merge: true));
   }
 
@@ -267,7 +284,7 @@ class CoupleService {
     required DateTime? date,
   }) {
     return _db.collection('couples').doc(coupleId).set({
-      'nextMeetup': date == null ? null : Timestamp.fromDate(date),
+      'nextMeetup': CalendarDate.writeOrNull(date),
     }, SetOptions(merge: true));
   }
 

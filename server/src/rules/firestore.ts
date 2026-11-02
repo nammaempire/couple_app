@@ -394,6 +394,15 @@ function phoneIndexWriteOk(c: Ctx): boolean {
 
 // ---- Invites ---------------------------------------------------------------------
 
+/** How long an invite code works after it was made or last renewed. */
+const INVITE_LIFETIME_MS = 7 * 86_400_000;
+
+/** The stored invite was made or renewed less than a week ago. */
+function inviteFresh(c: Ctx): boolean {
+  const at = get(R(c), "createdAt", null);
+  return isTimestamp(at) && now(c) - ms(at) < INVITE_LIFETIME_MS;
+}
+
 const invites: Rule[] = [
   {
     // One document per invite code: invites/{code}. Codes can be looked up one
@@ -407,17 +416,29 @@ const invites: Rule[] = [
       signedIn(c) &&
       eq(D(c).createdBy, me(c)) &&
       eq(D(c).used, false) &&
+      isNow(c, D(c).createdAt) &&
       (await isMemberAfter(c, D(c).coupleId)) &&
       eq((await coupleAfter(c, D(c).coupleId)).inviteCode, c.params.code),
-    // Accepting: the joiner marks an unused invite as used by themselves, in
-    // the same transaction that adds them to the couple.
-    update: async (c) =>
-      signedIn(c) &&
-      eq(R(c).used, false) &&
-      eq(D(c).used, true) &&
-      eq(D(c).usedBy, me(c)) &&
-      E.hasOnly(changedKeys(c), ["used", "usedBy", "usedAt"]) &&
-      (await isMemberAfter(c, R(c).coupleId)),
+    // Accepting: the joiner marks an unused, unexpired invite as used by
+    // themselves, in the same transaction that adds them to the couple.
+    // Renewing: the creator restarts an unused invite's week (same code).
+    update: (c) =>
+      or(
+        async () =>
+          signedIn(c) &&
+          eq(R(c).used, false) &&
+          inviteFresh(c) &&
+          eq(D(c).used, true) &&
+          eq(D(c).usedBy, me(c)) &&
+          E.hasOnly(changedKeys(c), ["used", "usedBy", "usedAt"]) &&
+          (await isMemberAfter(c, R(c).coupleId)),
+        () =>
+          signedIn(c) &&
+          eq(R(c).createdBy, me(c)) &&
+          eq(R(c).used, false) &&
+          E.hasOnly(changedKeys(c), ["createdAt"]) &&
+          isNow(c, D(c).createdAt),
+      ),
     // The creator may withdraw their invite.
     delete: (c) => signedIn(c) && eq(R(c).createdBy, me(c)),
   },
@@ -612,6 +633,66 @@ const messages: Rule[] = [
   },
 ];
 
+
+/** A daily-question write changes no answer but the writer's own. */
+function onlyMyDailyAnswer(c: Ctx, answers: V, before: V): boolean {
+  if (!isMap(answers) || !isMap(before)) return false;
+  const uid = me(c);
+  return [...mapDiff(answers, before)].every((k) => k === uid);
+}
+
+/** How long an unanswered call blocks a new one (the app gives up at 45 s). */
+const CALL_RING_HOLD_MS = 60 * 1000;
+/** How long an answered call blocks a new one if nobody ever ended it
+ * (both phones switched off mid-call). */
+const CALL_TALK_HOLD_MS = 4 * 60 * 60 * 1000;
+
+/** A call set ringing by me, to my partner, with a fresh channel. */
+async function validNewCall(c: Ctx): Promise<boolean> {
+  const d = D(c);
+  const members = asList((await coupleData(c)).memberIds);
+  return (
+    eq(d.callerId, me(c)) &&
+    isStr(d.calleeId) &&
+    !eq(d.calleeId, me(c)) &&
+    inL(d.calleeId, members) &&
+    eq(d.status, "ringing") &&
+    inL(d.type, ["voice", "video"]) &&
+    isStr(d.channelName) &&
+    size(d.channelName) >= 8 &&
+    isNow(c, d.startedAt) &&
+    (c.resource === null || !eq(d.channelName, get(R(c), "channelName", null)))
+  );
+}
+
+/** The current call document holds a call that is still going. */
+function callBusy(c: Ctx): boolean {
+  const r = R(c);
+  const status = get(r, "status", null);
+  const started = get(r, "startedAt", null);
+  if (!isTimestamp(started)) return false;
+  const age = now(c) - ms(started);
+  if (eq(status, "ringing")) return age < CALL_RING_HOLD_MS;
+  if (eq(status, "accepted")) return age < CALL_TALK_HOLD_MS;
+  return false;
+}
+
+/** A change to the call in progress: only its status and times. */
+function validCallUpdate(c: Ctx): boolean {
+  const d = D(c);
+  const r = R(c);
+  const changed = [...changedKeys(c)];
+  if (!changed.every((k) => ["status", "answeredAt", "endedAt"].includes(k))) return false;
+  if (!changed.includes("status")) return true;
+  const from = get(r, "status", null);
+  const to = d.status;
+  const callee = eq(r.calleeId, me(c));
+  if (eq(to, "accepted") || eq(to, "declined")) return callee && eq(from, "ringing");
+  if (eq(to, "missed")) return eq(from, "ringing");
+  if (eq(to, "ended")) return eq(from, "ringing") || eq(from, "accepted");
+  return false;
+}
+
 // ---- Moods, daily questions, calls, memories, events, notes ------------------------
 
 const shared: Rule[] = [
@@ -622,22 +703,42 @@ const shared: Rule[] = [
     write: async (c) => (await isMemberOf(c)) && me(c) === c.params.userId,
   },
   {
-    // Daily questions: one document per day holding both answers. Either
-    // partner may create or merge into it; nobody may delete the record.
+    // Daily questions: one document per day (yyyy-MM-dd) holding both
+    // answers. Either partner may create it or add to it, but each may only
+    // write their own answer: never the other's, nor the day's prompt once
+    // set. Nobody may delete the record.
     pattern: "couples/{coupleId}/dailyQuestions/{dateKey}",
     read: (c) => isMemberOf(c),
-    create: (c) => isMemberOf(c),
-    update: (c) => isMemberOf(c),
+    create: async (c) =>
+      (await isMemberOf(c)) &&
+      matches(c.params.dateKey, /^\d{4}-\d{2}-\d{2}$/) &&
+      keys(D(c)).every((k) => ["prompt", "date", "answers"].includes(k)) &&
+      (!has(D(c), "date") || eq(D(c).date, c.params.dateKey)) &&
+      (!has(D(c), "prompt") || isStr(D(c).prompt)) &&
+      onlyMyDailyAnswer(c, get(D(c), "answers", {}), {}),
+    update: async (c) =>
+      (await isMemberOf(c)) &&
+      [...changedKeys(c)].every((k) => k === "answers") &&
+      onlyMyDailyAnswer(c, get(D(c), "answers", {}), get(R(c), "answers", {})),
     delete: () => false,
   },
   {
-    // Call signalling. A single `current` document both partners read and
-    // write: the caller sets it ringing, the callee accepts or declines, and
-    // either may end it.
+    // Call signalling: one `current` document both partners read and write,
+    // reused for every call.
+    //  - Ringing (a new call) only as yourself, to your partner, and not
+    //    while another call is still ringing or in progress (so two people
+    //    calling each other at once can't overwrite each other's call).
+    //  - During a call only its status and times change: the callee accepts
+    //    or declines; either may end it or mark it missed.
     pattern: "couples/{coupleId}/call/{callId}",
     read: (c) => isMemberOf(c),
-    create: async (c) => (await isMemberOf(c)) && eq(D(c).callerId, me(c)),
-    update: (c) => isMemberOf(c),
+    create: async (c) => (await isMemberOf(c)) && (await validNewCall(c)),
+    update: async (c) =>
+      (await isMemberOf(c)) &&
+      (await or(
+        async () => (await validNewCall(c)) && !callBusy(c),
+        () => validCallUpdate(c),
+      )),
     delete: (c) => isMemberOf(c),
   },
   {

@@ -34,7 +34,8 @@ class _BackgroundPhotoSheetState extends ConsumerState<BackgroundPhotoSheet> {
       final chat = ref.read(chatServiceProvider);
       final coupleId = ref.read(currentCoupleIdProvider);
       _chatPhotos = chat
-          .fetchMedia(coupleId)
+          // The latest 200 photos and videos.
+          .fetchMedia(coupleId, limit: 200)
           .then(
             (list) => [
               for (final m in list)

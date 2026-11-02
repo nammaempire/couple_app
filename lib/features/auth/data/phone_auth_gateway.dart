@@ -3,7 +3,14 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Whether a verified number signs in, or is added to the signed-in account.
-enum PhoneAuthMode { signIn, link }
+enum PhoneAuthMode {
+  signIn,
+  link,
+
+  /// Confirms the signed-in account's own number again, for something
+  /// that needs a recent sign-in (deleting the account).
+  reauth,
+}
 
 /// What went wrong with a mobile-number sign-in, in words the screens can
 /// explain.
@@ -226,6 +233,12 @@ class FirebasePhoneAuthGateway implements PhoneAuthGateway {
           }
           // The security rules read the number from the ID token, so get
           // a fresh one that carries it before anything is written.
+          await user.getIdToken(true);
+        case PhoneAuthMode.reauth:
+          final user = _auth.currentUser;
+          if (user == null) throw PhoneAuthException(PhoneAuthError.other);
+          await user.reauthenticateWithCredential(credential);
+          // A fresh ID token carries the new sign-in time for the server.
           await user.getIdToken(true);
       }
     } on PhoneAuthException {

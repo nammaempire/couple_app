@@ -251,7 +251,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               streak: streak,
               onAnswer: (text) => ref
                   .read(dailyQuestionServiceProvider)
-                  .answer(coupleId: couple.id, uid: me.uid, text: text),
+                  .answer(
+                    coupleId: couple.id,
+                    uid: me.uid,
+                    text: text,
+                    entry: todayEntry,
+                  ),
             ),
           ],
         ),

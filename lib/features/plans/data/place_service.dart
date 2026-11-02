@@ -1,6 +1,7 @@
 import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/plans/models/place.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// Reads and writes `couples/{coupleId}/places`.
 class PlaceService {
@@ -49,11 +50,10 @@ class PlaceService {
     int? rating,
     required String notes,
   }) {
-    final day = DateTime(visitedAt.year, visitedAt.month, visitedAt.day);
     final trimmed = notes.trim();
     return _places(coupleId).doc(placeId).update({
       'status': PlaceStatus.been.id,
-      'visitedAt': Timestamp.fromDate(day),
+      'visitedAt': CalendarDate.write(visitedAt),
       'rating': rating,
       'notes': trimmed.length > Place.maxNotes
           ? trimmed.substring(0, Place.maxNotes)

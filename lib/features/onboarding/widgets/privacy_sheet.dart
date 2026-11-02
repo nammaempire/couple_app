@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:couple_app/core/legal/legal_links.dart';
 import 'package:couple_app/core/widgets/animated_gradient_card.dart';
 import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/features/onboarding/widgets/romance_kit.dart';
@@ -53,6 +55,15 @@ Future<bool?> showPrivacySheet(BuildContext context) {
                 preset: GradientPreset.mint,
                 title: 'No location tracking',
                 body: 'The app does not collect your location.',
+              ),
+              Consumer(
+                builder: (context, ref, _) => TextButton.icon(
+                  key: const Key('privacy-sheet-policy'),
+                  onPressed: () =>
+                      openLegalPage(context, ref, LegalPage.privacy),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Read the full privacy policy'),
+                ),
               ),
               const SizedBox(height: 6),
               FilledButton(

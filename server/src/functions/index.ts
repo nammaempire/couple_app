@@ -4,6 +4,7 @@
  */
 import type { AuthInfo } from "../rules/engine.js";
 import { verifyPurchase as verifyPurchaseImpl } from "./billing.js";
+import { deleteAccount } from "./deleteAccount.js";
 import { iceServers } from "./ice.js";
 import { finalizeSeparation, leaveNow, requireUid } from "./separations.js";
 
@@ -18,6 +19,12 @@ export const callables: Record<string, Callable> = {
    * Returns { status: 'granted' | 'alreadyGranted', premiumUntil?, bookCredits?, giftId? }.
    */
   verifyPurchase: async (auth, data) => verifyPurchaseImpl(requireUid(auth), data),
+  /**
+   * Deletes the caller's account: ends their pairing, deletes their data,
+   * files and sign-in. Data: { confirm: "DELETE" }; needs a sign-in from the
+   * last 10 minutes. Returns { status: 'deleted', signInDeleted }.
+   */
+  deleteAccount: (auth, data) => deleteAccount(auth, data),
   /** Connection servers (STUN, and TURN when configured) for a WebRTC call. */
   iceServers: async (auth) => iceServers(auth),
 };

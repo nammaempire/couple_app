@@ -22,6 +22,7 @@ class ChatInput extends StatefulWidget {
     required this.onSendVoice,
     this.onOpenStickers,
     this.enabled = true,
+    this.active = true,
     this.replyingTo,
     this.replyingToLabel,
     this.onCancelReply,
@@ -38,6 +39,11 @@ class ChatInput extends StatefulWidget {
   /// Opens the couple sticker picker. The button is hidden when null.
   final VoidCallback? onOpenStickers;
   final bool enabled;
+
+  /// False while the Chat tab is hidden (the tabs stay alive in the
+  /// background): a voice message being recorded is discarded, so the
+  /// microphone never keeps listening off-screen.
+  final bool active;
 
   final ReplyPreview? replyingTo;
 
@@ -73,6 +79,9 @@ class _ChatInputState extends State<ChatInput> {
   @override
   void didUpdateWidget(covariant ChatInput oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!widget.active && oldWidget.active && _voice.isRecording) {
+      _voice.cancel();
+    }
     // Starting a reply focuses the field, like other messaging apps.
     if (widget.replyingTo != null &&
         widget.replyingTo?.messageId != oldWidget.replyingTo?.messageId) {

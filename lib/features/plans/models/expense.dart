@@ -1,5 +1,6 @@
 import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// A shared cost, or a payment that settles up between the two of you.
 enum ExpenseKind {
@@ -141,7 +142,10 @@ class Expense {
       category: settlement
           ? ExpenseCategory.other
           : ExpenseCategory.fromId(_string(data['category'])),
-      spentOn: _date(data['spentOn']) ?? _date(data['createdAt']) ?? _epoch,
+      spentOn:
+          CalendarDate.read(data['spentOn']) ??
+          _day(_date(data['createdAt'])) ??
+          _epoch,
       note: _string(data['note']) ?? '',
       createdBy: _string(data['createdBy']) ?? '',
       createdAt: _date(data['createdAt']),
@@ -159,9 +163,7 @@ class Expense {
       'split': settlement ? ExpenseSplit.full.id : split.id,
       'shares': custom ? Map<String, int>.of(shares ?? const {}) : null,
       'category': settlement ? ExpenseCategory.other.id : category.id,
-      'spentOn': Timestamp.fromDate(
-        DateTime(spentOn.year, spentOn.month, spentOn.day),
-      ),
+      'spentOn': CalendarDate.write(spentOn),
       'note': note.trim(),
       'createdBy': createdBy,
     };
@@ -203,6 +205,10 @@ class Expense {
     if (v is num && v.isFinite) return v.round();
     return null;
   }
+
+  /// The local calendar day of an instant (older expenses without a day).
+  static DateTime? _day(DateTime? d) =>
+      d == null ? null : DateTime(d.year, d.month, d.day);
 
   static DateTime? _date(Object? v) {
     if (v is Timestamp) return v.toDate();

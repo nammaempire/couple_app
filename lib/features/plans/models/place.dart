@@ -2,6 +2,7 @@ import 'package:couple_app/core/backend/backend.dart';
 import 'package:flutter/material.dart';
 
 import 'package:couple_app/features/plans/models/date_plan.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// What kind of place it is.
 enum PlaceCategory {
@@ -129,7 +130,7 @@ class Place {
       category: PlaceCategory.fromId(_string(data['category'])),
       status: status,
       rating: been ? _rating(data['rating']) : null,
-      visitedAt: been ? _date(data['visitedAt']) : null,
+      visitedAt: been ? CalendarDate.read(data['visitedAt']) : null,
       notes: _string(data['notes']) ?? '',
       favourite: data['favourite'] == true,
       createdBy: _string(data['createdBy']) ?? '',
@@ -149,7 +150,7 @@ class Place {
       'category': category.id,
       'status': status.id,
       'rating': isBeen ? rating : null,
-      'visitedAt': visited == null ? null : Timestamp.fromDate(visited),
+      'visitedAt': CalendarDate.writeOrNull(visited),
       'notes': _clip(notes.trim(), maxNotes),
       'favourite': favourite,
       'createdBy': createdBy,

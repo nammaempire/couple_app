@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
 import 'package:couple_app/features/calls/data/active_call.dart';
+import 'package:couple_app/features/calls/data/call_service.dart';
 import 'package:couple_app/features/calls/models/call_session.dart';
 import 'package:couple_app/features/calls/providers/call_providers.dart';
 import 'package:couple_app/features/calls/screens/call_screen.dart';
@@ -53,6 +54,14 @@ Future<void> placeCall(
       chat: ref.read(chatServiceProvider),
     );
     await CallScreen.open(Navigator.of(context), call);
+  } on CallBusyException catch (e) {
+    if (!context.mounted) return;
+    final name = ref.read(partnerNameProvider);
+    context.showSnackMessage(
+      e.incoming
+          ? '$name is calling you right now.'
+          : 'There\'s already a call going on. Try again in a moment.',
+    );
   } catch (_) {
     if (!context.mounted) return;
     context.showSnackMessage('Could not start the call.');

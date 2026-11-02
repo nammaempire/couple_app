@@ -45,6 +45,27 @@ export const config = {
    * notifications through Firebase Cloud Messaging. Empty = no pushes.
    */
   firebaseServiceAccountJson: opt("FIREBASE_SERVICE_ACCOUNT_JSON"),
+  /**
+   * Contact email shown on the public pages: /privacy, /terms and
+   * /delete-account (deletion requests without the app).
+   */
+  supportEmail: opt("SUPPORT_EMAIL"),
+  backups: {
+    /** Daily database backups to the bucket (under backups/db/). On by default. */
+    enabled: opt("BACKUPS_ENABLED", "true") === "true",
+    /**
+     * Encrypts backups (AES-256-GCM, key derived from this passphrase). Keep a
+     * copy somewhere safe: without it a backup can't be restored.
+     */
+    encryptionKey: opt("BACKUP_ENCRYPTION_KEY"),
+    /** How many days of backups to keep (the privacy policy promises at most 30). */
+    retentionDays: Math.min(30, Math.max(1, Number(opt("BACKUP_RETENTION_DAYS", "30")) || 30)),
+  },
+
+  /** The company's registered address, shown in the privacy policy and terms. */
+  companyAddress: opt("COMPANY_ADDRESS"),
+  /** Name of the Grievance Officer (Indian IT Rules), shown in the privacy policy. */
+  grievanceOfficer: opt("GRIEVANCE_OFFICER"),
 
   /**
    * TURN relay for calls (coturn with use-auth-secret). Comma-separated URLs,

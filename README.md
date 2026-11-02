@@ -76,6 +76,9 @@ Build the Play Store bundle with:
 flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
 ```
 
+It needs the upload key (see *Release signing* below): a release build without
+it stops with an error, so a debug-signed build can never be uploaded.
+
 Google Play then delivers only the parts each phone needs. Measured on
 22 Oct 2026 (64-bit ARM phone): about **73 MB installed, ~33 MB download**,
 down from 271 MB before trimming. What keeps it small:
@@ -89,6 +92,41 @@ down from 271 MB before trimming. What keeps it small:
 
 (These sizes were measured with the old Agora engine; calls now use
 `flutter_webrtc`, which is smaller. Re-measure on the next release build.)
+
+### Automatic checks (CI)
+
+`.github/workflows/ci.yml` runs on GitHub for every push to `main` and every
+pull request: the app's `flutter analyze` and `flutter test`, the server's
+type check, tests (with a real Postgres) and build, and an Android debug and
+release build. A ✓ or ✗ appears next to each commit; details are in the
+repository's **Actions** tab. Keep `FLUTTER_VERSION` in the workflow the same
+as the Flutter on your computer (`flutter --version`).
+
+### Release signing
+
+Create the upload key once and keep it safe (losing it means asking Google to
+reset it; with Play App Signing, Google holds the key that signs what users
+install):
+
+```
+keytool -genkey -v -keystore %USERPROFILE%\us-upload.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Then create `android/key.properties` (gitignored, never commit it):
+
+```
+storePassword=<the keystore password>
+keyPassword=<the key password>
+keyAlias=upload
+storeFile=C:\\Users\\<you>\\us-upload.jks
+```
+
+Add the key's SHA-1 and SHA-256 (`keytool -list -v -keystore … -alias upload`)
+and, after the first upload, Play App Signing's SHA-1/SHA-256 to the Firebase
+Android app, for Google and phone sign-in.
+
+To try a release build on your own phone before the key exists, set
+`US_ALLOW_DEBUG_SIGNING=true` in that terminal (test only; Play rejects it).
 
 ## Onboarding flow
 
@@ -115,7 +153,10 @@ already paired.
 1. Partner A creates a space. In one batch this writes `couples/{id}`,
    `invites/{code}` and `coupleId` on A's profile.
 2. Partner B looks the code up with a single `get` on `invites/{code}`.
-   Invites can't be listed, so codes can't be enumerated.
+   Invites can't be listed, so codes can't be enumerated. A code works for
+   7 days; opening the invite screen (or sending a request by mobile number)
+   renews it, keeping the same code. An expired code tells B to ask A to open
+   their invite.
 3. B accepts in one transaction: adds themselves to `memberIds`, marks the
    invite `used`, and sets their own `coupleId`.
 
@@ -403,6 +444,23 @@ confetti, sunset, ocean, lavender, blush, mint) or a photo from your gallery,
 your memories or photos sent in chat, with dim and blur sliders. "Both of
 us" changes the chat for you both; "Just me" keeps a look only you see. A
 live preview shows exactly how it will look.
+
+**Deleting the account.** Us → Delete my account (required by Google Play).
+The screen says what goes, asks to type DELETE and to confirm it's you again
+(password, Google or an SMS code), then the server's `deleteAccount` function
+ends the pairing (everything shared is deleted for both; the partner sees the
+pairing ended), deletes the profile, phone lookup, pair requests, invites,
+files and the Firebase sign-in, and the app signs out. Purchase records are
+kept for refunds and tax. People without the app can follow
+`<server URL>/delete-account`, the page to give Google Play.
+
+**Privacy policy and terms.** Served by the Us server at `/privacy` and
+`/terms` (Reset95 Private Limited; text in `server/src/legal.ts`), linked from
+the welcome screen ("By continuing, you confirm you're 18 or older and agree
+to…"), the privacy sheet and Us → Privacy policy / Terms of use. Give the
+same URLs to Google Play. Contact details come from the server's
+`SUPPORT_EMAIL`, `COMPANY_ADDRESS` and `GRIEVANCE_OFFICER`. Update the text
+when the app starts collecting something new (for example crash reports).
 
 **Avatars.** Us → Your avatar. Build a cartoon you: 8 skin tones, 5 face
 shapes, 13 hair styles and 8 colours, eyes, brows, facial hair, glasses,
@@ -695,8 +753,24 @@ and no App ID. The voice and video buttons in the chat header start them.
 ### Network relay (TURN) — set up before the Play Store release
 
 The server's `iceServers` function tells the app how to find a path between
-the phones. Today it gives only STUN (Google's public servers), which works
-on most Wi-Fi and many mobile networks. Some mobile networks block direct
-connections; for those, calls need a TURN relay. Plan: a small VPS (~$5/month)
-running coturn, then set `TURN_URLS`, `TURN_SECRET` and `TURN_TTL_SECONDS` on
-the server (see `server/README.md`). No app change is needed.
+the phones. Without a relay it gives only STUN (Google's public servers),
+which works on most Wi-Fi and many mobile networks. Some mobile networks
+block direct connections; for those, calls need a TURN relay: a small Linux
+server running coturn. The app needs no change; each call gets a login that
+expires (made from `TURN_SECRET`), so nothing secret ships in the app.
+
+1. Rent a small Ubuntu 22.04 or 24.04 server (1 vCPU, 1 GB RAM is plenty to
+   start) close to your users: Mumbai, Bangalore or Singapore. Note its IP.
+2. Optional but recommended: a domain name for it (e.g. `turn.yourdomain.com`,
+   an A record pointing at the IP). It adds TURN over TLS on port 443, which
+   gets through networks that only allow HTTPS.
+3. Copy `server/turn/setup-coturn.sh` to the server (WinSCP, or
+   `scp server\turn\setup-coturn.sh root@<IP>:`), then on the server, as root:
+   `sed -i 's/\r$//' setup-coturn.sh` (removes Windows line endings), then
+   `bash setup-coturn.sh` or `bash setup-coturn.sh turn.yourdomain.com`.
+4. It ends by printing `TURN_URLS`, `TURN_SECRET` and `TURN_TTL_SECONDS`.
+   Add them to the us-server service on Railway (Variables) and deploy.
+5. Check: make a call between a phone on Wi-Fi and a phone on mobile data.
+
+Relayed calls use the server's bandwidth (about 0.1 GB per hour of voice and
+1–2 GB per hour of video), so watch the VPS's monthly transfer allowance.

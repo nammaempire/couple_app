@@ -26,14 +26,43 @@ class CallService {
     });
   }
 
-  /// Places a call. Overwrites any previous call document, so a stale ended
-  /// call never blocks a new one.
+  /// How long a call nobody ended keeps the line busy (both phones went
+  /// off mid-call). Must match the server rules.
+  static const ringHold = Duration(seconds: 60);
+  static const talkHold = Duration(hours: 4);
+
+  /// Whether [call] is still ringing or in progress, so a new call must not
+  /// replace it.
+  static bool isBusy(CallSession? call, {DateTime? now}) {
+    final started = call?.startedAt;
+    if (call == null || started == null) return false;
+    final age = (now ?? DateTime.now()).difference(started);
+    if (call.isRinging) return age < ringHold;
+    if (call.isActive) return age < talkHold;
+    return false;
+  }
+
+  /// Places a call. Replaces the previous call document once that call is
+  /// over (a stale one never blocks a new call), but throws
+  /// [CallBusyException] while a call is still ringing or going on: say,
+  /// both partners pressed call at the same moment. The server refuses it
+  /// too.
   Future<CallSession> startCall({
     required String coupleId,
     required String callerId,
     required String calleeId,
     required CallType type,
   }) async {
+    final current = await _callDoc(coupleId).get();
+    if (current.exists) {
+      final call = CallSession.fromDoc(current);
+      if (isBusy(call)) {
+        throw CallBusyException(
+          incoming: call.isRinging && call.callerId == calleeId,
+        );
+      }
+    }
+
     final channelName = _uuid.v4().replaceAll('-', '');
     // Setup messages from earlier calls are no longer needed.
     try {
@@ -107,4 +136,15 @@ class CallService {
       if (e.code != 'not-found') rethrow;
     }
   }
+}
+
+/// A call couldn't be placed because another one is ringing or going on.
+class CallBusyException implements Exception {
+  const CallBusyException({required this.incoming});
+
+  /// The partner is calling this phone right now (both pressed call).
+  final bool incoming;
+
+  @override
+  String toString() => 'CallBusyException(incoming: $incoming)';
 }

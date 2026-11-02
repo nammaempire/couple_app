@@ -2,6 +2,7 @@ import 'package:couple_app/core/backend/backend.dart';
 
 import 'package:couple_app/features/couple/models/separation.dart';
 import 'package:couple_app/features/premium/models/premium_status.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// A pair of users sharing one conversation.
 class Couple {
@@ -201,8 +202,8 @@ class Couple {
         (data['memberIds'] as List<dynamic>?) ?? const <dynamic>[],
       ),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-      startDate: (data['startDate'] as Timestamp?)?.toDate(),
-      nextMeetup: (data['nextMeetup'] as Timestamp?)?.toDate(),
+      startDate: CalendarDate.read(data['startDate']),
+      nextMeetup: CalendarDate.read(data['nextMeetup']),
       nicknames: Map<String, String>.from(
         (data['nicknames'] as Map<String, dynamic>?) ?? <String, dynamic>{},
       ),

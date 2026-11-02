@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:couple_app/core/media/media_navigation.dart';
 import 'package:couple_app/core/utils/duration_format.dart';
 import 'package:couple_app/features/auth/providers/auth_providers.dart';
+import 'package:couple_app/features/chat/data/chat_service.dart';
 import 'package:couple_app/features/chat/models/message.dart';
 import 'package:couple_app/features/chat/providers/chat_providers.dart';
 import 'package:couple_app/features/chat/widgets/chat_privacy_scope.dart';
@@ -31,12 +32,56 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
     _coupleId = ref.read(currentCoupleIdProvider);
   }
 
-  late Future<List<Message>> _media = _fetch();
+  /// Loaded so far, newest first; more load as you scroll down.
+  final _media = <Message>[];
+  bool _loading = false;
+  bool _reachedEnd = false;
+  bool _failed = false;
 
-  /// Leaves out anything "clear chat" has hidden.
-  Future<List<Message>> _fetch() => ref
-      .read(chatServiceProvider)
-      .fetchMedia(_coupleId, clearedAt: ref.read(chatClearedAtProvider));
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_media.isEmpty && !_loading && !_reachedEnd && !_failed) {
+      _loadMore();
+    }
+  }
+
+  /// Fetches the next page (older than what's loaded), leaving out anything
+  /// "clear chat" has hidden.
+  Future<void> _loadMore() async {
+    if (_loading || _reachedEnd) return;
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
+    try {
+      final page = await ref
+          .read(chatServiceProvider)
+          .fetchMedia(
+            _coupleId,
+            clearedAt: ref.read(chatClearedAtProvider),
+            before: _media.isEmpty ? null : _media.last.sentAt,
+          );
+      if (!mounted) return;
+      setState(() {
+        _media.addAll(page);
+        _reachedEnd = page.length < ChatService.mediaPageSize;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.metrics.extentAfter < 600) _loadMore();
+    return false;
+  }
+
   _Filter _filter = _Filter.all;
 
   void _open(Message message) {
@@ -89,23 +134,21 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
           ),
         ),
       ),
-      body: FutureBuilder<List<Message>>(
-        future: _media,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(
-              child: TextButton.icon(
-                onPressed: () => setState(() => _media = _fetch()),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Could not load. Try again'),
-              ),
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+      body: Builder(
+        builder: (context) {
+          final retry = TextButton.icon(
+            onPressed: _loadMore,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Could not load. Try again'),
+          );
+          if (_media.isEmpty) {
+            if (_failed) return Center(child: retry);
+            if (!_reachedEnd) {
+              return const Center(child: CircularProgressIndicator());
+            }
           }
 
-          final items = snapshot.data!.where((m) {
+          final items = _media.where((m) {
             return switch (_filter) {
               _Filter.all => true,
               _Filter.photos => m.type == MessageType.image,
@@ -113,7 +156,7 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
             };
           }).toList();
 
-          if (items.isEmpty) {
+          if (items.isEmpty && _reachedEnd) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -135,44 +178,91 @@ class _MediaGalleryScreenState extends ConsumerState<MediaGalleryScreen> {
             groups.putIfAbsent(key, () => []).add(m);
           }
 
-          return CustomScrollView(
-            slivers: [
-              for (final entry in groups.entries) ...[
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      entry.key,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
+          return NotificationListener<ScrollNotification>(
+            onNotification: _onScroll,
+            child: CustomScrollView(
+              // Always scrollable, so a short first page (say, with the Videos
+              // filter on) can still be pulled to load the next one.
+              physics: const AlwaysScrollableScrollPhysics(),
+              slivers: [
+                for (final entry in groups.entries) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Text(
+                        entry.key,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  sliver: SliverGrid.builder(
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          mainAxisSpacing: 2,
-                          crossAxisSpacing: 2,
-                        ),
-                    itemCount: entry.value.length,
-                    itemBuilder: (context, i) => _Tile(
-                      message: entry.value[i],
-                      onTap: () => _open(entry.value[i]),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    sliver: SliverGrid.builder(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            mainAxisSpacing: 2,
+                            crossAxisSpacing: 2,
+                          ),
+                      itemCount: entry.value.length,
+                      itemBuilder: (context, i) => _Tile(
+                        message: entry.value[i],
+                        onTap: () => _open(entry.value[i]),
+                      ),
+                    ),
+                  ),
+                ],
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Center(
+                      child: _failed
+                          ? retry
+                          : _reachedEnd
+                          ? const SizedBox.shrink()
+                          : _LoadMoreTrigger(
+                              key: ValueKey(_media.length),
+                              onShown: _loadMore,
+                            ),
                     ),
                   ),
                 ),
               ],
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
+            ),
           );
         },
       ),
     );
   }
+}
+
+/// A spinner at the end of the list that asks for the next page as soon as
+/// it is built, so a page too short to scroll still loads the rest.
+class _LoadMoreTrigger extends StatefulWidget {
+  const _LoadMoreTrigger({super.key, required this.onShown});
+
+  final VoidCallback onShown;
+
+  @override
+  State<_LoadMoreTrigger> createState() => _LoadMoreTriggerState();
+}
+
+class _LoadMoreTriggerState extends State<_LoadMoreTrigger> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onShown();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.square(
+    dimension: 24,
+    child: CircularProgressIndicator(strokeWidth: 2),
+  );
 }
 
 class _Tile extends StatelessWidget {

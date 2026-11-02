@@ -17,7 +17,8 @@ export interface PushSender {
 let warned = false;
 let app: App | null = null;
 
-function pushApp(): App | null {
+/** The Firebase Admin app with the service account (push, deleting sign-ins), or null when not configured. */
+export function pushApp(): App | null {
   if (app) return app;
   if (!config.firebaseServiceAccountJson) {
     if (!warned) {

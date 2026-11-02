@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'package:couple_app/features/auth/models/app_user.dart';
 import 'package:couple_app/features/together/data/reminder_service.dart';
+import 'package:couple_app/core/utils/calendar_date.dart';
 
 /// Thrown when Google sign-in cannot complete for a reason worth explaining.
 class GoogleSignInSetupException implements Exception {
@@ -176,7 +177,7 @@ class AuthService {
     await _userDoc(user.uid).set({
       'displayName': name,
       'nickname': (nick == null || nick.isEmpty) ? null : nick,
-      'birthday': birthday == null ? null : Timestamp.fromDate(birthday),
+      'birthday': CalendarDate.writeOrNull(birthday),
       'photoUrl': ?photoUrl,
       'email': user.email,
       'profileComplete': true,
@@ -197,9 +198,8 @@ class AuthService {
     ).set({'displayName': trimmed}, SetOptions(merge: true));
   }
 
-  Future<void> setBirthday(DateTime? birthday) => _mergeMine({
-    'birthday': birthday == null ? null : Timestamp.fromDate(birthday),
-  });
+  Future<void> setBirthday(DateTime? birthday) =>
+      _mergeMine({'birthday': CalendarDate.writeOrNull(birthday)});
 
   Future<void> saveNotificationPrefs(NotificationPrefs prefs) =>
       _mergeMine({'notificationPrefs': prefs.toMap()});

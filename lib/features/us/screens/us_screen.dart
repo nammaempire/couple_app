@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:couple_app/core/legal/legal_links.dart';
 import 'package:couple_app/core/utils/snackbar.dart';
 import 'package:couple_app/core/widgets/entrance_animation.dart';
 import 'package:couple_app/core/widgets/gradient_preset.dart';
 import 'package:couple_app/core/widgets/name_edit_dialog.dart';
+import 'package:couple_app/features/account/screens/delete_account_screen.dart';
 import 'package:couple_app/features/app_lock/app_lock_controller.dart';
 import 'package:couple_app/features/app_lock/widgets/app_lock_settings_sheet.dart';
 import 'package:couple_app/features/security/widgets/us_security_row.dart';
@@ -471,6 +473,22 @@ class UsScreen extends ConsumerWidget {
                 ),
 
                 ListTile(
+                  key: const Key('us-privacy-policy'),
+                  leading: const Icon(Icons.policy_outlined),
+                  title: const Text('Privacy policy'),
+                  trailing: const Icon(Icons.open_in_new, size: 20),
+                  onTap: () => openLegalPage(context, ref, LegalPage.privacy),
+                ),
+
+                ListTile(
+                  key: const Key('us-terms'),
+                  leading: const Icon(Icons.description_outlined),
+                  title: const Text('Terms of use'),
+                  trailing: const Icon(Icons.open_in_new, size: 20),
+                  onTap: () => openLegalPage(context, ref, LegalPage.terms),
+                ),
+
+                ListTile(
                   leading: const Icon(Icons.lock_outline),
                   title: const Text('App lock'),
                   subtitle: Text(
@@ -573,6 +591,20 @@ class UsScreen extends ConsumerWidget {
                           style: TextStyle(color: theme.colorScheme.error),
                         ),
                         onTap: () => ref.read(authServiceProvider).signOut(),
+                      ),
+                      ListTile(
+                        key: const Key('us-delete-account'),
+                        leading: Icon(
+                          Icons.delete_forever_outlined,
+                          color: theme.colorScheme.error,
+                        ),
+                        title: Text(
+                          'Delete my account',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        onTap: () => Navigator.of(
+                          context,
+                        ).push(DeleteAccountScreen.route()),
                       ),
                     ],
                   ),

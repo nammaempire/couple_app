@@ -11,13 +11,31 @@ plugins {
 }
 
 // Release signing details live in android/key.properties, which is gitignored
-// and never committed. Without it, release builds fall back to the debug key
-// so the project still builds on a fresh clone.
+// and never committed (see README, "Release signing"). A release build without
+// it stops with an error, so a debug-signed build can never reach Google Play.
+// To try a release build on your own phone before the key exists, set the
+// environment variable US_ALLOW_DEBUG_SIGNING=true (debug-signed, test only).
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 val hasReleaseKeystore = keystorePropertiesFile.exists()
 if (hasReleaseKeystore) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+val allowDebugSigning = System.getenv("US_ALLOW_DEBUG_SIGNING") == "true"
+
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any { task ->
+        task.project == project &&
+            (task.name.startsWith("assemble") || task.name.startsWith("bundle")) &&
+            task.name.contains("Release")
+    }
+    if (buildsRelease && !hasReleaseKeystore && !allowDebugSigning) {
+        throw GradleException(
+            "Release builds need the upload key: create android/key.properties " +
+                "(see README, \"Release signing\"). For a test build on your " +
+                "own phone only, set US_ALLOW_DEBUG_SIGNING=true.",
+        )
+    }
 }
 
 android {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:couple_app/core/legal/legal_links.dart';
 import 'package:couple_app/core/widgets/entrance_animation.dart';
 import 'package:couple_app/core/widgets/glass.dart';
 import 'package:couple_app/core/widgets/gradient_preset.dart';
@@ -157,6 +158,19 @@ class WelcomeScreen extends StatelessWidget {
                                 ),
                               ),
                               child: const Text('I already have an account'),
+                            ),
+                            const SizedBox(height: 4),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: LegalAgreementText(
+                                color: dark
+                                    ? scheme.onSurfaceVariant
+                                    : GradientPreset.blush.ink.withValues(
+                                        alpha: .8,
+                                      ),
+                              ),
                             ),
                           ],
                         ),
