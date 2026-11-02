@@ -186,60 +186,67 @@ class _LoveBurstViewState extends State<LoveBurstView>
     final avatar = widget.avatar;
     final bigSize = min(size.width, size.height) * (avatar != null ? .9 : .75);
 
+    // The overlay sits outside any Material, so text there would get
+    // Flutter's "missing style" look (a yellow double underline, which the
+    // giant emoji turned into a yellow bar). A transparent Material gives it
+    // the normal text style.
     return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          final t = _c.value;
-          final fade = _fade(t);
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Opacity(
-                opacity: fade,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      colors: [tap.tint, tap.tint.withAlpha(0)],
-                      radius: .8,
-                    ),
-                  ),
-                ),
-              ),
-              CustomPaint(
-                painter: _ParticlePainter(
-                  particles: particles,
-                  t: t,
-                  center: size.center(Offset.zero),
-                ),
-              ),
-              Center(
-                child: Opacity(
+      child: Material(
+        type: MaterialType.transparency,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = _c.value;
+            final fade = _fade(t);
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                Opacity(
                   opacity: fade,
-                  child: Transform.scale(
-                    scale: _bigScale(t),
-                    child: SizedBox.square(
-                      dimension: bigSize,
-                      child: avatar != null
-                          ? AvatarView(
-                              config: avatar,
-                              expression: tap.expression,
-                              size: bigSize,
-                              showBackground: false,
-                            )
-                          : FittedBox(
-                              child: Text(
-                                tap.emoji,
-                                style: const TextStyle(fontSize: 200),
-                              ),
-                            ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        colors: [tap.tint, tap.tint.withAlpha(0)],
+                        radius: .8,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+                CustomPaint(
+                  painter: _ParticlePainter(
+                    particles: particles,
+                    t: t,
+                    center: size.center(Offset.zero),
+                  ),
+                ),
+                Center(
+                  child: Opacity(
+                    opacity: fade,
+                    child: Transform.scale(
+                      scale: _bigScale(t),
+                      child: SizedBox.square(
+                        dimension: bigSize,
+                        child: avatar != null
+                            ? AvatarView(
+                                config: avatar,
+                                expression: tap.expression,
+                                size: bigSize,
+                                showBackground: false,
+                              )
+                            : FittedBox(
+                                child: Text(
+                                  tap.emoji,
+                                  style: const TextStyle(fontSize: 200),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

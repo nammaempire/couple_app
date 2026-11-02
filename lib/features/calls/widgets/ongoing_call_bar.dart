@@ -111,17 +111,23 @@ class _OngoingCallOverlayState extends State<OngoingCallOverlay> {
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Hang up',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: call.hangUp,
-                    icon: const CircleAvatar(
-                      radius: 14,
-                      backgroundColor: Color(0xFFE5484D),
-                      child: Icon(
-                        Icons.call_end_rounded,
-                        color: Colors.white,
-                        size: 16,
+                  // No tooltip: this bar is drawn above the navigator, where
+                  // there is no Overlay for one (a tooltip here crashes).
+                  Semantics(
+                    button: true,
+                    label: 'Hang up',
+                    child: IconButton(
+                      key: const Key('ongoing-call-hang-up'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: call.hangUp,
+                      icon: const CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Color(0xFFE5484D),
+                        child: Icon(
+                          Icons.call_end_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
                       ),
                     ),
                   ),
