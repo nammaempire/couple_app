@@ -17,7 +17,9 @@ before(async () => {
     writes: [
       { op: "set", path: "couples/victimC", data: { memberIds: ["vic"], inviteCode: "K7Q2", lastMessage: { text: "secret" } } },
       { op: "set", path: "users/vic", data: { name: "Victim", email: "victim@example.com", coupleId: "victimC" } },
-      { op: "set", path: "couples/attC", data: { memberIds: ["att"], inviteCode: "￿", lastMessage: { text: "￿" } } },
+      // "zzzz" sorts after every probe below under any database collation (C or
+      // en_US, which Railway uses); a character like U+FFFF doesn't under en_US.
+      { op: "set", path: "couples/attC", data: { memberIds: ["att"], inviteCode: "zzzz", lastMessage: { text: "zzzz" } } },
       { op: "set", path: "users/att", data: { name: "A", email: "￿", coupleId: "attC" } },
     ],
   });
